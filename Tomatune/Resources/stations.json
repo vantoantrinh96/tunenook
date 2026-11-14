@@ -1,0 +1,34 @@
+[
+  {
+    "id": "groovesalad",
+    "name": "Groove Salad",
+    "subtitle": "Chilled ambient & downtempo beats",
+    "symbol": "leaf",
+    "url": "https://ice1.somafm.com/groovesalad-128-mp3",
+    "source": "SomaFM"
+  },
+  {
+    "id": "fluid",
+    "name": "Fluid",
+    "subtitle": "Instrumental hip-hop & lofi grooves",
+    "symbol": "drop",
+    "url": "https://ice1.somafm.com/fluid-128-mp3",
+    "source": "SomaFM"
+  },
+  {
+    "id": "dronezone",
+    "name": "Drone Zone",
+    "subtitle": "Atmospheric ambient for deep work",
+    "symbol": "cloud",
+    "url": "https://ice1.somafm.com/dronezone-128-mp3",
+    "source": "SomaFM"
+  },
+  {
+    "id": "deepspaceone",
+    "name": "Deep Space One",
+    "subtitle": "Deep ambient & space music",
+    "symbol": "sparkles",
+    "url": "https://ice1.somafm.com/deepspaceone-128-mp3",
+    "source": "SomaFM"
+  }
+]
