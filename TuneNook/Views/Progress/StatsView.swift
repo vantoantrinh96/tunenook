@@ -37,6 +37,9 @@ struct StatsContent: View {
                 }
             }
             deadlines(progress)
+            card("Menu bar icons") {
+                IconCollectionView()
+            }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -208,9 +208,17 @@ private struct RadioPanel: View {
         switch radio.state {
         case .stopped: radio.selectedStation?.subtitle ?? "No stations"
         case .buffering: "Connecting…"
-        case .playing: "Live · \(radio.selectedStation?.source ?? "")"
+        case .playing: playingText
         case .failed(let message): message
         }
+    }
+
+    /// Says when a break rule is playing another station or a lower volume.
+    private var playingText: String {
+        guard let station = radio.currentStation else { return "Live" }
+        if station.id != radio.selectedStationID { return "Break · \(station.name)" }
+        if radio.volume < 0.99 { return "Live · softer for the break" }
+        return "Live · \(station.source)"
     }
 }
 

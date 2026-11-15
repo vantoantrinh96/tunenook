@@ -6,9 +6,11 @@ import SwiftUI
 struct TuneNookApp: App {
     private let container: ModelContainer
     private let notifications: NotificationService
+    private let coordinator: SessionCoordinator
     @State private var engine: TimerEngine
     @State private var radio: RadioPlayer
     @State private var goalStore: GoalStore
+    @State private var rewards: RewardStore
 
     init() {
         let container: ModelContainer
@@ -21,56 +23,28 @@ struct TuneNookApp: App {
         let radio = RadioPlayer()
         let notifications = NotificationService()
         let goalStore = GoalStore()
-        let context = container.mainContext
-
-        engine.onSessionEnded = { record in
-            let wasMet = Self.todayGoalMet(context: context, goalStore: goalStore)
-            context.insert(FocusSession(
-                kind: record.kind,
-                startedAt: record.startedAt,
-                endedAt: record.endedAt,
-                activeSeconds: record.activeDuration,
-                completed: record.completed,
-                task: record.task
-            ))
-            try? context.save()
-            if record.kind == .focus, record.completed, !wasMet,
-               Self.todayGoalMet(context: context, goalStore: goalStore) {
-                let sessions = (try? context.fetch(FetchDescriptor(predicate: FocusSession.completedFocus))) ?? []
-                let streak = FocusProgress(sessions: sessions, goalStore: goalStore).streak.current
-                notifications.notifyGoalReached(streak: streak)
-            }
-        }
-        engine.onRunningScheduled = { [weak engine] kind, endsAt in
-            notifications.schedulePhaseEnd(kind, at: endsAt, taskTitle: engine?.currentTask?.title)
-            if kind == .focus, AppPreferences.autoPlayRadio, !radio.isOn {
-                radio.play()
-            }
-        }
-        engine.onRunningCancelled = {
-            notifications.cancel()
-        }
+        let rewards = RewardStore()
+        let coordinator = SessionCoordinator(
+            context: container.mainContext,
+            engine: engine,
+            goalStore: goalStore,
+            rewards: rewards,
+            notifications: notifications,
+            celebrations: CelebrationCenter(),
+            music: MusicDirector(radio: radio)
+        )
+        coordinator.attach()
 
         notifications.requestAuthorization()
         engine.startTicking()
 
         self.container = container
         self.notifications = notifications
+        self.coordinator = coordinator
         _engine = State(initialValue: engine)
         _radio = State(initialValue: radio)
         _goalStore = State(initialValue: goalStore)
-    }
-
-    private static func todayGoalMet(context: ModelContext, goalStore: GoalStore) -> Bool {
-        let calendar = goalStore.calendar
-        let dayStart = calendar.day(for: .now).addingTimeInterval(Double(goalStore.dayStartHour) * 3600)
-        let focus = SessionKind.focus.rawValue
-        let descriptor = FetchDescriptor<FocusSession>(predicate: #Predicate {
-            $0.completed && $0.kindRaw == focus && $0.endedAt >= dayStart
-        })
-        let sessions = (try? context.fetch(descriptor)) ?? []
-        let total = DayTotal(seconds: sessions.reduce(0) { $0 + $1.focusedDuration }, sessions: sessions.count)
-        return goalStore.current.isMet(total)
+        _rewards = State(initialValue: rewards)
     }
 
     var body: some Scene {
@@ -79,9 +53,10 @@ struct TuneNookApp: App {
                 .environment(engine)
                 .environment(radio)
                 .environment(goalStore)
+                .environment(rewards)
                 .modelContainer(container)
         } label: {
-            MenuBarLabel(engine: engine)
+            MenuBarLabel(engine: engine, rewards: rewards)
         }
         .menuBarExtraStyle(.window)
 
@@ -90,6 +65,7 @@ struct TuneNookApp: App {
                 .environment(engine)
                 .environment(radio)
                 .environment(goalStore)
+                .environment(rewards)
                 .modelContainer(container)
         }
         .defaultSize(width: 820, height: 560)
@@ -98,20 +74,14 @@ struct TuneNookApp: App {
             SettingsView()
                 .environment(radio)
                 .environment(goalStore)
+                .environment(rewards)
+                .modelContainer(container)
         }
     }
 }
 
 enum WindowID {
     static let main = "main"
-}
-
-enum AppPreferences {
-    static let autoPlayRadioKey = "radio.autoPlayOnFocus"
-
-    static var autoPlayRadio: Bool {
-        UserDefaults.standard.object(forKey: autoPlayRadioKey) as? Bool ?? true
-    }
 }
 
 /// Brings a window of an `LSUIElement` app to the front.

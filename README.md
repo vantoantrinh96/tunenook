@@ -13,6 +13,9 @@ A cozy focus nook in your macOS menu bar: a task-driven focus timer with built-i
 - **Notifications** when a phase ends. They are scheduled ahead of time, so they fire even when the app is idle.
 - **Daily goal & streaks** (v0.2): set a daily target in focus minutes or sessions. Meeting it grows your streak, and every 7-day streak earns a freeze (max 2) that covers a missed day. You can set when a new day starts, for night owls.
 - **Progress page** (v0.2): today's ring, current and best streak, freezes, last 7 days, a GitHub-style heatmap of focus history and deadline pacing per topic (sessions per day needed).
+- **Celebrations** (v0.3): confetti when you reach your daily goal, hit a streak milestone (3, 7, 14, 30… days) or unlock an icon. Set it to off, milestones only or every session. It respects Reduce Motion.
+- **Unlockable menu bar icons** (v0.3): 10 icons earned by sessions finished, best streak and goal days. Pick one in Settings → Rewards or on the Progress page.
+- **Smart music rules** (v0.3): on a break, keep playing, lower the volume, pause or switch to a break station. Music can also pause and stop with the timer, and comes back when focus resumes.
 - **Sleep-proof**: remaining time comes from an end date, so the timer catches up correctly after sleep.
 
 ## Roadmap
@@ -21,7 +24,7 @@ A cozy focus nook in your macOS menu bar: a task-driven focus timer with built-i
 |---|---|
 | **MVP** ✅ | Menu bar timer, topic/task CRUD, estimate vs actual, notifications, radio |
 | **v0.2** ✅ | Daily targets, streaks with freezes, GitHub-style heatmap, deadline pacing |
-| v0.3 | Celebration animations, unlockable menu bar icons, smart music rules (pause or switch on breaks) |
+| **v0.3** ✅ | Celebration animations, unlockable menu bar icons, smart music rules (pause or switch on breaks) |
 | Later | Stats & estimate accuracy, macOS Focus Filters, iCloud sync, remote station list |
 
 ## Development
@@ -47,15 +50,16 @@ The Xcode project, `Info.plist` and entitlements are generated, so edit `project
 
 ```
 TuneNook/
-  App/            App entry, scenes, wiring
+  App/            App entry, scenes, SessionCoordinator (timer events → data, rewards, music)
   Models/         SwiftData models: Topic, TodoTask, FocusSession
   Timer/          TimerEngine (state machine) and TimerSettings
   Progress/       Daily goals, focus-day calendar, streak & heatmap stats
-  Audio/          RadioPlayer (AVPlayer) and stations
+  Rewards/        Icon unlocks, celebration rules and the overlay
+  Audio/          RadioPlayer (AVPlayer), stations and music rules
   Notifications/  Phase-end notifications
   Views/          Menu bar popover, main window, progress page, settings
   Resources/      stations.json
-TuneNookTests/    Timer engine and streak tests (Swift Testing)
+TuneNookTests/    Timer, streak, reward and music rule tests (Swift Testing)
 ```
 
 Streaks and the heatmap are derived from `FocusSession` rows, so there is a single source of truth. Goal changes are stored as a history, so raising the goal today never rewrites past days.

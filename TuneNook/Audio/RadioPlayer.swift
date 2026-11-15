@@ -14,6 +14,10 @@ final class RadioPlayer {
 
     let stations: [RadioStation]
     private(set) var state: State = .stopped
+    /// The station on air, which a music rule may set apart from the picked one.
+    private(set) var playingStationID: String?
+    /// 0–1, eased toward its target so rule changes don't jolt.
+    private(set) var volume: Float = 1
     var selectedStationID: String {
         didSet {
             guard oldValue != selectedStationID else { return }
@@ -25,6 +29,7 @@ final class RadioPlayer {
     @ObservationIgnored private let player = AVPlayer()
     @ObservationIgnored private var statusObservation: NSKeyValueObservation?
     @ObservationIgnored private var itemObservation: NSKeyValueObservation?
+    @ObservationIgnored private var fadeTask: Task<Void, Never>?
 
     private static let selectedKey = "radio.selectedStationID"
 
@@ -43,6 +48,11 @@ final class RadioPlayer {
         stations.first { $0.id == selectedStationID }
     }
 
+    /// The station on air, or the picked one when nothing plays.
+    var currentStation: RadioStation? {
+        stations.first { $0.id == (playingStationID ?? selectedStationID) }
+    }
+
     var isOn: Bool {
         state == .playing || state == .buffering
     }
@@ -52,7 +62,20 @@ final class RadioPlayer {
     }
 
     func play() {
-        guard let station = selectedStation else { return }
+        play(stationID: selectedStationID, volume: 1)
+    }
+
+    /// Plays a station, fading to `volume`. A station already on air keeps playing.
+    func play(stationID: String, volume: Float) {
+        guard let station = stations.first(where: { $0.id == stationID }) else { return }
+        if isOn, playingStationID == station.id {
+            fade(to: volume)
+            return
+        }
+        fadeTask?.cancel()
+        self.volume = volume
+        player.volume = volume
+        playingStationID = station.id
         let item = AVPlayerItem(url: station.url)
         itemObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
             guard item.status == .failed else { return }
@@ -65,10 +88,28 @@ final class RadioPlayer {
     }
 
     func stop() {
+        fadeTask?.cancel()
+        playingStationID = nil
         player.pause()
         player.replaceCurrentItem(with: nil)
         itemObservation = nil
         state = .stopped
+    }
+
+    private func fade(to target: Float) {
+        fadeTask?.cancel()
+        let start = volume
+        guard start != target else { return }
+        fadeTask = Task { [weak self] in
+            let steps = 20
+            for step in 1...steps {
+                try? await Task.sleep(for: .milliseconds(40))
+                guard !Task.isCancelled, let self else { return }
+                let value = start + (target - start) * Float(step) / Float(steps)
+                self.volume = value
+                self.player.volume = value
+            }
+        }
     }
 
     private func handle(_ status: AVPlayer.TimeControlStatus) {
