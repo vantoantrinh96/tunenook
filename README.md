@@ -4,13 +4,15 @@ A cozy focus nook in your macOS menu bar: a task-driven focus timer with built-i
 
 *Tune in. Get it done.*
 
-## Features (MVP)
+## Features
 
 - **Menu bar timer**: time left shows in the menu bar. Start, pause, resume, stop and skip from a popover. Press Space to start or pause.
 - **Topics & tasks**: group to-dos by topic, estimate focus sessions per task and track actual against estimate.
 - **Focus cycle**: focus, short break and a long break every N sessions (Pomodoro-style by default), all configurable. Breaks can start automatically.
 - **Focus Radio**: one-click internet radio from [SomaFM](https://somafm.com). Can start automatically with each focus session.
 - **Notifications** when a phase ends. They are scheduled ahead of time, so they fire even when the app is idle.
+- **Daily goal & streaks** (v0.2): set a daily target in focus minutes or sessions. Meeting it grows your streak, and every 7-day streak earns a freeze (max 2) that covers a missed day. You can set when a new day starts, for night owls.
+- **Progress page** (v0.2): today's ring, current and best streak, freezes, last 7 days, a GitHub-style heatmap of focus history and deadline pacing per topic (sessions per day needed).
 - **Sleep-proof**: remaining time comes from an end date, so the timer catches up correctly after sleep.
 
 ## Roadmap
@@ -18,7 +20,7 @@ A cozy focus nook in your macOS menu bar: a task-driven focus timer with built-i
 | Phase | Scope |
 |---|---|
 | **MVP** ✅ | Menu bar timer, topic/task CRUD, estimate vs actual, notifications, radio |
-| v0.2 | Daily targets, streaks, GitHub-style heatmap |
+| **v0.2** ✅ | Daily targets, streaks with freezes, GitHub-style heatmap, deadline pacing |
 | v0.3 | Celebration animations, unlockable menu bar icons, smart music rules (pause or switch on breaks) |
 | Later | Stats & estimate accuracy, macOS Focus Filters, iCloud sync, remote station list |
 
@@ -48,11 +50,12 @@ TuneNook/
   App/            App entry, scenes, wiring
   Models/         SwiftData models: Topic, TodoTask, FocusSession
   Timer/          TimerEngine (state machine) and TimerSettings
+  Progress/       Daily goals, focus-day calendar, streak & heatmap stats
   Audio/          RadioPlayer (AVPlayer) and stations
   Notifications/  Phase-end notifications
-  Views/          Menu bar popover, main window, settings
+  Views/          Menu bar popover, main window, progress page, settings
   Resources/      stations.json
-TuneNookTests/    Timer engine tests (Swift Testing)
+TuneNookTests/    Timer engine and streak tests (Swift Testing)
 ```
 
-Streaks and the heatmap in v0.2 will be derived from `FocusSession` rows, so there is a single source of truth.
+Streaks and the heatmap are derived from `FocusSession` rows, so there is a single source of truth. Goal changes are stored as a history, so raising the goal today never rewrites past days.

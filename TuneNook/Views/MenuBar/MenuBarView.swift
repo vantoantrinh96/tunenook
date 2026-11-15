@@ -217,25 +217,39 @@ private struct RadioPanel: View {
 // MARK: - Today
 
 private struct TodaySummary: View {
-    @Query private var sessions: [FocusSession]
-
-    init() {
-        let start = Calendar.current.startOfDay(for: .now)
-        let focus = SessionKind.focus.rawValue
-        _sessions = Query(filter: #Predicate<FocusSession> {
-            $0.completed && $0.kindRaw == focus && $0.endedAt >= start
-        })
-    }
+    @Environment(GoalStore.self) private var goalStore
+    @Environment(\.openWindow) private var openWindow
+    @Query(filter: FocusSession.completedFocus) private var sessions: [FocusSession]
 
     var body: some View {
-        let minutes = Int(sessions.reduce(0) { $0 + $1.endedAt.timeIntervalSince($1.startedAt) } / 60)
-        HStack {
-            Text("Today")
-                .foregroundStyle(.secondary)
+        let progress = FocusProgress(sessions: sessions, goalStore: goalStore)
+        let goal = progress.todayGoal
+        let total = progress.todayTotal
+        HStack(spacing: 10) {
+            GoalRing(progress: goal.progress(total))
+                .frame(width: 26, height: 26)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(progress.todayMet ? "Daily goal met" : "Today")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("\(goal.achieved(total)) / \(goal.target) \(goal.unit)")
+                    .font(.callout.monospacedDigit())
+            }
             Spacer()
-            Text("\(sessions.count) ♪ · \(minutes) min")
-                .monospacedDigit()
+            Label("\(progress.streak.current)", systemImage: "flame.fill")
+                .font(.callout.monospacedDigit())
+                .help("Current streak: \(progress.streak.current) days")
+            if progress.streak.freezesAvailable > 0 {
+                Label("\(progress.streak.freezesAvailable)", systemImage: "snowflake")
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .help("Streak freezes available")
+            }
         }
-        .font(.callout)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            openWindow(id: WindowID.main)
+            activateApp()
+        }
     }
 }

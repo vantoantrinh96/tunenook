@@ -44,6 +44,14 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
         center.add(UNNotificationRequest(identifier: requestID, content: content, trigger: trigger))
     }
 
+    func notifyGoalReached(streak: Int) {
+        let content = UNMutableNotificationContent()
+        content.title = "Daily goal reached 🔥"
+        content.body = streak > 1 ? "That's a \(streak)-day streak. Keep it going tomorrow!" : "Great start. Come back tomorrow to build a streak."
+        content.sound = .default
+        center.add(UNNotificationRequest(identifier: "tunenook.goal-reached", content: content, trigger: nil))
+    }
+
     func cancel() {
         center.removePendingNotificationRequests(withIdentifiers: [requestID])
     }

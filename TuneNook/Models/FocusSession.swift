@@ -24,14 +24,26 @@ final class FocusSession {
     var endedAt: Date
     var kindRaw: String
     var completed: Bool
+    /// Time the timer actually ran, excluding pauses. 0 for rows saved before v0.2.
+    var activeSeconds: Double = 0
     var task: TodoTask?
 
-    init(kind: SessionKind, startedAt: Date, endedAt: Date, completed: Bool, task: TodoTask?) {
+    init(kind: SessionKind, startedAt: Date, endedAt: Date, activeSeconds: Double, completed: Bool, task: TodoTask?) {
         self.kindRaw = kind.rawValue
         self.startedAt = startedAt
         self.endedAt = endedAt
+        self.activeSeconds = activeSeconds
         self.completed = completed
         self.task = task
+    }
+
+    static var completedFocus: Predicate<FocusSession> {
+        let focus = SessionKind.focus.rawValue
+        return #Predicate { $0.completed && $0.kindRaw == focus }
+    }
+
+    var focusedDuration: TimeInterval {
+        activeSeconds > 0 ? activeSeconds : endedAt.timeIntervalSince(startedAt)
     }
 
     var kind: SessionKind {

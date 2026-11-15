@@ -1,18 +1,26 @@
 import SwiftData
 import SwiftUI
 
+enum SidebarItem: Hashable {
+    case progress
+    case topic(Topic)
+}
+
 struct MainView: View {
-    @State private var selectedTopic: Topic?
+    @State private var selection: SidebarItem? = .progress
 
     var body: some View {
         NavigationSplitView {
-            TopicSidebar(selection: $selectedTopic)
+            TopicSidebar(selection: $selection)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 230)
         } detail: {
-            if let topic = selectedTopic {
+            switch selection {
+            case .progress:
+                StatsView()
+            case .topic(let topic):
                 TaskListView(topic: topic)
                     .id(topic.persistentModelID)
-            } else {
+            case nil:
                 ContentUnavailableView(
                     "Pick a topic",
                     systemImage: "tray",
@@ -20,7 +28,7 @@ struct MainView: View {
                 )
             }
         }
-        .frame(minWidth: 680, minHeight: 420)
+        .frame(minWidth: 760, minHeight: 480)
         .onAppear(perform: activateApp)
     }
 }

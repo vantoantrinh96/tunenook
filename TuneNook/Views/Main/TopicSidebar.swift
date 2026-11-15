@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 
 struct TopicSidebar: View {
-    @Binding var selection: Topic?
+    @Binding var selection: SidebarItem?
 
     @Environment(\.modelContext) private var context
     @Environment(TimerEngine.self) private var engine
@@ -13,23 +13,20 @@ struct TopicSidebar: View {
 
     var body: some View {
         List(selection: $selection) {
+            Label("Progress", systemImage: "chart.bar.xaxis")
+                .tag(SidebarItem.progress)
             Section("Topics") {
+                if topics.isEmpty {
+                    Button("New Topic…") { editing = TopicDraft() }
+                        .buttonStyle(.link)
+                }
                 ForEach(topics) { topic in
                     TopicRow(topic: topic)
-                        .tag(topic)
+                        .tag(SidebarItem.topic(topic))
                         .contextMenu {
                             Button("Edit…") { editing = TopicDraft(topic: topic) }
                             Button("Delete…", role: .destructive) { pendingDelete = topic }
                         }
-                }
-            }
-        }
-        .overlay {
-            if topics.isEmpty {
-                ContentUnavailableView {
-                    Label("No topics yet", systemImage: "square.stack")
-                } actions: {
-                    Button("New Topic") { editing = TopicDraft() }
                 }
             }
         }
@@ -44,7 +41,7 @@ struct TopicSidebar: View {
             }
         }
         .sheet(item: $editing) { draft in
-            TopicEditor(draft: draft) { saved in selection = saved }
+            TopicEditor(draft: draft) { saved in selection = .topic(saved) }
         }
         .confirmationDialog(
             "Delete “\(pendingDelete?.name ?? "")” and all its tasks?",
@@ -57,9 +54,6 @@ struct TopicSidebar: View {
         } message: {
             Text("Past session history is kept.")
         }
-        .onAppear {
-            if selection == nil { selection = topics.first }
-        }
     }
 
     private func delete(_ topic: Topic) {
@@ -67,7 +61,7 @@ struct TopicSidebar: View {
             engine.abandon()
             engine.currentTask = nil
         }
-        if selection == topic { selection = nil }
+        if selection == .topic(topic) { selection = .progress }
         context.delete(topic)
         try? context.save()
         pendingDelete = nil

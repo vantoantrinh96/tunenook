@@ -8,9 +8,11 @@ struct SettingsView: View {
     @AppStorage(TimerSettings.Key.autoStartBreaks) private var autoStartBreaks = true
     @AppStorage(TimerSettings.Key.autoStartFocus) private var autoStartFocus = false
     @AppStorage(AppPreferences.autoPlayRadioKey) private var autoPlayRadio = true
+    @Environment(GoalStore.self) private var goalStore
 
     var body: some View {
         Form {
+            goalSection
             Section("Durations") {
                 minutesStepper("Focus", value: $focusMinutes, range: 5...90)
                 minutesStepper("Short break", value: $shortBreakMinutes, range: 1...30)
@@ -38,6 +40,45 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 420)
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var goalSection: some View {
+        @Bindable var goalStore = goalStore
+        let goal = goalStore.current
+        let kind = Binding<DailyGoal.Kind>(
+            get: { goalStore.current.kind },
+            set: { goalStore.setGoal(DailyGoal(kind: $0, target: DailyGoal.defaultTarget(for: $0))) }
+        )
+        let target = Binding<Int>(
+            get: { goalStore.current.target },
+            set: { goalStore.setGoal(DailyGoal(kind: goalStore.current.kind, target: $0)) }
+        )
+        return Section {
+            Picker("Daily goal", selection: kind) {
+                Text("Focus minutes").tag(DailyGoal.Kind.minutes)
+                Text("Sessions").tag(DailyGoal.Kind.sessions)
+            }
+            if goal.kind == .minutes {
+                Stepper(value: target, in: 15...600, step: 15) {
+                    LabeledContent("Target", value: "\(goal.target) min")
+                }
+            } else {
+                Stepper(value: target, in: 1...16) {
+                    LabeledContent("Target", value: "\(goal.target) sessions")
+                }
+            }
+            Picker("New day starts at", selection: $goalStore.dayStartHour) {
+                ForEach(0...6, id: \.self) { hour in
+                    Text(hour == 0 ? "Midnight" : "\(hour):00 AM").tag(hour)
+                }
+            }
+        } header: {
+            Text("Daily goal")
+        } footer: {
+            Text("Hit the goal to grow your streak. Every \(FocusStats.freezeEvery)-day streak earns a freeze (max \(FocusStats.maxFreezes)) that covers a missed day. Goal changes apply from today on.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private func minutesStepper(_ title: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {

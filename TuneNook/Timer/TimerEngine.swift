@@ -6,6 +6,8 @@ struct SessionRecord {
     let kind: SessionKind
     let startedAt: Date
     let endedAt: Date
+    /// Running time, excluding pauses.
+    let activeDuration: TimeInterval
     let completed: Bool
     let task: TodoTask?
 }
@@ -38,6 +40,8 @@ final class TimerEngine {
     @ObservationIgnored private let clock: () -> Date
     @ObservationIgnored private let settingsProvider: () -> TimerSettings
     @ObservationIgnored private var phaseStartedAt: Date?
+    @ObservationIgnored private var runStartedAt: Date?
+    @ObservationIgnored private var accumulated: TimeInterval = 0
     @ObservationIgnored private var tickTask: Task<Void, Never>?
 
     init(
@@ -103,6 +107,7 @@ final class TimerEngine {
         guard case .running(let endsAt) = status else { return }
         now = clock()
         status = .paused(remaining: max(0, endsAt.timeIntervalSince(now)))
+        accumulateRun(until: now)
         onRunningCancelled?()
     }
 
@@ -124,7 +129,10 @@ final class TimerEngine {
     func abandon() {
         guard isActive else { return }
         now = clock()
-        if isRunning { onRunningCancelled?() }
+        if isRunning {
+            accumulateRun(until: now)
+            onRunningCancelled?()
+        }
         emit(completed: false, endedAt: now)
         status = .idle
         if phase.isBreak { phase = .focus }
@@ -162,11 +170,18 @@ final class TimerEngine {
 
     private func run(for duration: TimeInterval) {
         let endsAt = now.addingTimeInterval(duration)
+        runStartedAt = now
         status = .running(endsAt: endsAt)
         onRunningScheduled?(phase, endsAt)
     }
 
+    private func accumulateRun(until date: Date) {
+        if let runStartedAt { accumulated += max(0, date.timeIntervalSince(runStartedAt)) }
+        runStartedAt = nil
+    }
+
     private func complete(at endDate: Date) {
+        accumulateRun(until: endDate)
         emit(completed: true, endedAt: endDate)
         let settings = self.settings
         let next: SessionKind
@@ -180,7 +195,7 @@ final class TimerEngine {
         status = .idle
         if settings.autoStarts(next) {
             phaseStartedAt = endDate
-            now = max(now, endDate)
+            runStartedAt = endDate
             // The next phase starts when the previous one ended, so time spent asleep still counts.
             let endsAt = endDate.addingTimeInterval(settings.duration(of: next))
             status = .running(endsAt: endsAt)
@@ -194,10 +209,13 @@ final class TimerEngine {
             kind: phase,
             startedAt: phaseStartedAt ?? endedAt,
             endedAt: endedAt,
+            activeDuration: accumulated,
             completed: completed,
             task: phase == .focus ? currentTask : nil
         )
         phaseStartedAt = nil
+        runStartedAt = nil
+        accumulated = 0
         onSessionEnded?(record)
     }
 }

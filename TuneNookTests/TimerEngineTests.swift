@@ -51,6 +51,19 @@ struct TimerEngineTests {
         #expect(engine.phase == .shortBreak)
     }
 
+    @Test func activeDurationExcludesPauses() {
+        let (engine, recorder) = makeEngine()
+        engine.start()
+        clock.advance(minutes: 10)
+        engine.pause()
+        clock.advance(minutes: 30)
+        engine.resume()
+        clock.advance(minutes: 15)
+        engine.tick()
+
+        #expect(abs((recorder.records.first?.activeDuration ?? 0) - 25 * 60) < 0.001)
+    }
+
     @Test func abandonDoesNotCount() {
         let (engine, recorder) = makeEngine()
         engine.start()
