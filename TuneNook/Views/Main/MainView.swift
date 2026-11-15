@@ -16,7 +16,7 @@ struct MainView: View {
                 ContentUnavailableView(
                     "Pick a topic",
                     systemImage: "tray",
-                    description: Text("Group your to-dos into topics, then start a pomodoro on any task.")
+                    description: Text("Group your to-dos into topics, then start a focus session on any task.")
                 )
             }
         }

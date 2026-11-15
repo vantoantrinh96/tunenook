@@ -55,7 +55,7 @@ struct TopicSidebar: View {
                 if let topic = pendingDelete { delete(topic) }
             }
         } message: {
-            Text("Past pomodoro history is kept.")
+            Text("Past session history is kept.")
         }
         .onAppear {
             if selection == nil { selection = topics.first }

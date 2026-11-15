@@ -1,4 +1,4 @@
-name: Tomatune
+name: TuneNook
 options:
   bundleIdPrefix: io.github.vantoantrinh96
   deploymentTarget:
@@ -11,50 +11,50 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
     DEVELOPMENT_TEAM: ""
 targets:
-  Tomatune:
+  TuneNook:
     type: application
     platform: macOS
     sources:
-      - path: Tomatune
+      - path: TuneNook
     info:
-      path: Tomatune/Info.plist
+      path: TuneNook/Info.plist
       properties:
-        CFBundleDisplayName: Tomatune
+        CFBundleDisplayName: TuneNook
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSUIElement: true
         LSApplicationCategoryType: public.app-category.productivity
         NSHumanReadableCopyright: ""
     entitlements:
-      path: Tomatune/Tomatune.entitlements
+      path: TuneNook/TuneNook.entitlements
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.network.client: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: io.github.vantoantrinh96.tomatune
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.vantoantrinh96.tunenook
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_IDENTITY: "-"
         ENABLE_HARDENED_RUNTIME: true
         GENERATE_INFOPLIST_FILE: false
-  TomatuneTests:
+  TuneNookTests:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: TomatuneTests
+      - path: TuneNookTests
     dependencies:
-      - target: Tomatune
+      - target: TuneNook
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: io.github.vantoantrinh96.tomatune.tests
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.vantoantrinh96.tunenook.tests
         CODE_SIGN_IDENTITY: "-"
         GENERATE_INFOPLIST_FILE: true
 schemes:
-  Tomatune:
+  TuneNook:
     build:
       targets:
-        Tomatune: all
-        TomatuneTests: [test]
+        TuneNook: all
+        TuneNookTests: [test]
     test:
       targets:
-        - TomatuneTests
+        - TuneNookTests

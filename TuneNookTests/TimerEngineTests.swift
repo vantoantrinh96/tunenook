@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import Tomatune
+@testable import TuneNook
 
 @MainActor
 final class FakeClock {

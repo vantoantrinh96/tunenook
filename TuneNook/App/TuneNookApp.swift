@@ -3,7 +3,7 @@ import SwiftData
 import SwiftUI
 
 @main
-struct TomatuneApp: App {
+struct TuneNookApp: App {
     private let container: ModelContainer
     private let notifications: NotificationService
     @State private var engine: TimerEngine
@@ -14,7 +14,7 @@ struct TomatuneApp: App {
         do {
             container = try ModelContainer(for: Topic.self, TodoTask.self, FocusSession.self)
         } catch {
-            fatalError("Could not open the Tomatune store: \(error)")
+            fatalError("Could not open the TuneNook store: \(error)")
         }
         let engine = TimerEngine()
         let radio = RadioPlayer()
@@ -61,7 +61,7 @@ struct TomatuneApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Window("Tomatune", id: WindowID.main) {
+        Window("TuneNook", id: WindowID.main) {
             MainView()
                 .environment(engine)
                 .environment(radio)

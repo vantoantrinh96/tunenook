@@ -21,7 +21,7 @@ struct MenuBarView: View {
 
     private var footer: some View {
         HStack {
-            Button("Open Tomatune") {
+            Button("Open TuneNook") {
                 openWindow(id: WindowID.main)
                 activateApp()
             }
@@ -36,7 +36,7 @@ struct MenuBarView: View {
             } label: {
                 Image(systemName: "power")
             }
-            .help("Quit Tomatune")
+            .help("Quit TuneNook")
         }
         .buttonStyle(.borderless)
     }
@@ -82,7 +82,7 @@ private struct TimerPanel: View {
                     Button("Skip", action: engine.skipBreak)
                 } else if engine.isActive {
                     Button("Stop", role: .destructive, action: engine.abandon)
-                        .help("Stop without counting this pomodoro")
+                        .help("Stop without counting this session")
                 }
             }
             .controlSize(.large)
@@ -133,7 +133,7 @@ private struct TaskLine: View {
                     .lineLimit(1)
                     .strikethrough(task.isDone)
                 Spacer(minLength: 4)
-                PomodoroBadge(actual: task.actualPomodoros, estimated: task.estimatedPomodoros)
+                SessionBadge(actual: task.actualSessions, estimated: task.estimatedSessions)
             } else {
                 Text("No task selected")
                     .foregroundStyle(.secondary)
@@ -233,7 +233,7 @@ private struct TodaySummary: View {
             Text("Today")
                 .foregroundStyle(.secondary)
             Spacer()
-            Text("\(sessions.count) 🍅 · \(minutes) min")
+            Text("\(sessions.count) ♪ · \(minutes) min")
                 .monospacedDigit()
         }
         .font(.callout)

@@ -10,7 +10,7 @@ struct SessionRecord {
     let task: TodoTask?
 }
 
-/// Pomodoro state machine. Remaining time is always derived from an end date,
+/// Focus timer state machine. Remaining time is always derived from an end date,
 /// so the timer stays correct across sleep, throttling or a closed menu.
 @MainActor
 @Observable

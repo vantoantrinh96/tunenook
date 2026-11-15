@@ -30,16 +30,16 @@ extension SessionKind {
         }
     }
 
-    var emoji: String { self == .focus ? "🍅" : "☕️" }
+    var emoji: String { self == .focus ? "♪" : "☕︎" }
 }
 
-/// "🍅 2/4" — actual vs estimated pomodoros, red when over the estimate.
-struct PomodoroBadge: View {
+/// "♪ 2/4" — actual vs estimated sessions, red when over the estimate.
+struct SessionBadge: View {
     let actual: Int
     let estimated: Int
 
     var body: some View {
-        Text("🍅 \(actual)/\(estimated)")
+        Text("♪ \(actual)/\(estimated)")
             .font(.caption.monospacedDigit())
             .padding(.horizontal, 6)
             .padding(.vertical, 2)

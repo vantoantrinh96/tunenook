@@ -16,7 +16,7 @@ struct SettingsView: View {
                 minutesStepper("Short break", value: $shortBreakMinutes, range: 1...30)
                 minutesStepper("Long break", value: $longBreakMinutes, range: 5...60)
                 Stepper(value: $longBreakInterval, in: 2...8) {
-                    LabeledContent("Long break every", value: "\(longBreakInterval) pomodoros")
+                    LabeledContent("Long break every", value: "\(longBreakInterval) sessions")
                 }
             }
             Section("Flow") {

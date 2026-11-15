@@ -5,7 +5,7 @@ import UserNotifications
 @MainActor
 final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
     private let center = UNUserNotificationCenter.current()
-    private let requestID = "tomatune.phase-end"
+    private let requestID = "tunenook.phase-end"
 
     override init() {
         super.init()
@@ -32,7 +32,7 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
         let content = UNMutableNotificationContent()
         switch kind {
         case .focus:
-            content.title = "Pomodoro complete 🍅"
+            content.title = "Focus session complete ♪"
             content.body = taskTitle.map { "Nice work on “\($0)”. Time for a break." } ?? "Time for a break."
         case .shortBreak, .longBreak:
             content.title = "Break is over"

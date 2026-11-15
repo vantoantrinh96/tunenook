@@ -48,8 +48,8 @@ struct TaskListView: View {
 
     private var subtitle: String {
         let open = topic.openTasks
-        let remaining = open.reduce(0) { $0 + max(0, $1.estimatedPomodoros - $1.actualPomodoros) }
-        var parts = ["\(open.count) open", "\(remaining) 🍅 left"]
+        let remaining = open.reduce(0) { $0 + max(0, $1.estimatedSessions - $1.actualSessions) }
+        var parts = ["\(open.count) open", "\(remaining) ♪ left"]
         if let deadline = topic.deadline {
             parts.append("due \(deadline.formatted(.relative(presentation: .named)))")
         }
@@ -81,11 +81,11 @@ private struct NewTaskBar: View {
                 .focused($focused)
                 .onSubmit(add)
             Stepper(value: $estimate, in: 1...12) {
-                Text("🍅 \(estimate)")
+                Text("♪ \(estimate)")
                     .monospacedDigit()
             }
             .fixedSize()
-            .help("Estimated pomodoros")
+            .help("Estimated sessions")
             Button("Add", action: add)
                 .disabled(trimmed.isEmpty)
         }
@@ -98,7 +98,7 @@ private struct NewTaskBar: View {
 
     private func add() {
         guard !trimmed.isEmpty else { return }
-        let task = TodoTask(title: trimmed, estimatedPomodoros: estimate, topic: topic)
+        let task = TodoTask(title: trimmed, estimatedSessions: estimate, topic: topic)
         context.insert(task)
         try? context.save()
         title = ""
@@ -140,7 +140,7 @@ private struct TaskRow: View {
 
             Spacer()
 
-            PomodoroBadge(actual: task.actualPomodoros, estimated: task.estimatedPomodoros)
+            SessionBadge(actual: task.actualSessions, estimated: task.estimatedSessions)
 
             if !task.isDone {
                 Button {
@@ -151,7 +151,7 @@ private struct TaskRow: View {
                 }
                 .buttonStyle(.borderless)
                 .disabled(isCurrent)
-                .help("Start a pomodoro on this task")
+                .help("Start a focus session on this task")
             }
         }
         .padding(.vertical, 2)
@@ -168,15 +168,15 @@ private struct TaskEditor: View {
         Form {
             TextField("Title", text: $title)
             Stepper(value: $estimate, in: 1...12) {
-                LabeledContent("Estimate", value: "🍅 \(estimate)")
+                LabeledContent("Estimate", value: "♪ \(estimate)")
             }
-            LabeledContent("Done so far", value: "🍅 \(task.actualPomodoros)")
+            LabeledContent("Done so far", value: "♪ \(task.actualSessions)")
         }
         .formStyle(.grouped)
         .frame(width: 360)
         .onAppear {
             title = task.title
-            estimate = task.estimatedPomodoros
+            estimate = task.estimatedSessions
         }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -185,7 +185,7 @@ private struct TaskEditor: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") {
                     task.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
-                    task.estimatedPomodoros = estimate
+                    task.estimatedSessions = estimate
                     dismiss()
                 }
                 .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
