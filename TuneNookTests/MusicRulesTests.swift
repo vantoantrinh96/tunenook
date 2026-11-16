@@ -4,10 +4,15 @@ import Testing
 struct MusicRulesTests {
     let focus = "groovesalad"
 
-    func command(_ moment: MusicMoment, active: Bool, _ configure: (inout MusicRules) -> Void = { _ in }) -> MusicCommand {
+    func command(
+        _ moment: MusicMoment,
+        active: Bool,
+        suspended: Bool = false,
+        _ configure: (inout MusicRules) -> Void = { _ in }
+    ) -> MusicCommand {
         var rules = MusicRules()
         configure(&rules)
-        return rules.command(for: moment, musicActive: active, focusStationID: focus)
+        return rules.command(for: moment, playing: active, suspended: suspended, focusStationID: focus)
     }
 
     @Test func focusNeverStartsMusic() {
@@ -33,8 +38,17 @@ struct MusicRulesTests {
     }
 
     @Test func pauseAndStopStopMusic() {
-        #expect(command(.paused, active: true) == .stop)
+        #expect(command(.paused, active: true) == .suspend)
         #expect(command(.stopped, active: true) == .stop)
+        #expect(command(.stopped, active: false, suspended: true) == .stop)
+    }
+
+    @Test func resumeContinuesPausedMusic() {
+        #expect(command(.focus, active: false, suspended: true) == .play(stationID: focus, volume: 1))
+        // Resuming a paused break brings music back under the break rule.
+        #expect(command(.breakTime, active: false, suspended: true) == .play(stationID: focus, volume: MusicRules.breakVolume))
+        // Skipping a paused break leaves the timer idle, so the music stays off.
+        #expect(command(.focusReady, active: false, suspended: true) == .stop)
     }
 
     @Test func skippedBreakRestoresFocusMusic() {

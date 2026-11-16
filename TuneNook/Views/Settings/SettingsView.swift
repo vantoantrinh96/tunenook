@@ -130,7 +130,7 @@ private struct MusicSettingsTab: View {
             } header: {
                 Text("Smart rules")
             } footer: {
-                Text("Pausing or stopping the timer stops the music. Music never starts by itself: press play in the menu bar when you want it. When focus resumes, the menu bar station returns at full volume.")
+                Text("Pausing the timer pauses the music and resuming brings it back. Stopping the timer stops the music. Music never starts by itself: press play in the menu bar when you want it.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

@@ -15,7 +15,7 @@ A cozy focus nook in your macOS menu bar: a task-driven focus timer with built-i
 - **Progress page** (v0.2): today's ring, current and best streak, freezes, last 7 days, a GitHub-style heatmap of focus history and deadline pacing per topic (sessions per day needed).
 - **Celebrations** (v0.3): confetti when you reach your daily goal, hit a streak milestone (3, 7, 14, 30… days) or unlock an icon. Set it to off, milestones only or every session. It respects Reduce Motion.
 - **Unlockable menu bar icons** (v0.3): 10 icons earned by sessions finished, best streak and goal days. Pick one in Settings → Rewards or on the Progress page.
-- **Smart music rules** (v0.3): on a break, keep playing, lower the volume, stop or switch to a break station. Pausing or stopping the timer stops the music. Music never starts by itself; you press play.
+- **Smart music rules** (v0.3): on a break, keep playing, lower the volume, stop or switch to a break station. Pausing the timer pauses the music and resuming continues it; stopping the timer stops it. Music never starts by itself; you press play.
 - **Sleep-proof**: remaining time comes from an end date, so the timer catches up correctly after sleep.
 
 ## Roadmap
