@@ -29,7 +29,7 @@ A cozy focus nook in your macOS menu bar: a task-driven focus timer with built-i
 
 ## Development
 
-Requirements: macOS 14+, Xcode 16+, [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
+Requirements: a Mac with Apple silicon (Intel is not supported), macOS 14+, Xcode 16+, [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 
 ```sh
 xcodegen generate           # creates TuneNook.xcodeproj from project.yml
@@ -63,7 +63,7 @@ Work on a branch, push it and open a pull request into `main`. PRs merge with a 
 
 ### Versioning
 
-PR titles follow [Conventional Commits](https://www.conventionalcommits.org), and a check fails the PR if the title doesn't match. When a PR is merged into `main` and CI passes, the [Release workflow](.github/workflows/release.yml) bumps the version in `project.yml` from the title and tags the commit. Only a version bump builds the app. The Release build, a universal binary for Apple silicon and Intel, is zipped and published as a GitHub Release. The release includes a SHA-256 checksum and notes generated from the merged PRs.
+PR titles follow [Conventional Commits](https://www.conventionalcommits.org), and a check fails the PR if the title doesn't match. When a PR is merged into `main` and CI passes, the [Release workflow](.github/workflows/release.yml) bumps the version in `project.yml` from the title and tags the commit. Only a version bump builds the app. The Release build is zipped and published as a GitHub Release. The release includes a SHA-256 checksum and notes generated from the merged PRs.
 
 The app is ad-hoc signed and not notarized. The first time you open a downloaded build, right-click the app and choose **Open**, or run `xattr -dr com.apple.quarantine TuneNook.app`.
 
