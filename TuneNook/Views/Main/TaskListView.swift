@@ -112,6 +112,7 @@ private struct TaskRow: View {
 
     @Environment(TimerEngine.self) private var engine
     @Environment(\.dismissWindow) private var dismissWindow
+    @State private var pendingSwitch: TaskSwitch?
 
     private var isCurrent: Bool {
         engine.currentTask == task && engine.isActive && engine.phase == .focus
@@ -144,17 +145,20 @@ private struct TaskRow: View {
 
             if !task.isDone {
                 Button {
-                    engine.startFocus(on: task)
-                    dismissWindow(id: WindowID.main)
+                    pendingSwitch = engine.requestSwitch(to: task, startNow: true)
+                    if pendingSwitch == nil { dismissWindow(id: WindowID.main) }
                 } label: {
                     Image(systemName: "play.fill")
                 }
                 .buttonStyle(.borderless)
                 .disabled(isCurrent)
-                .help("Start a focus session on this task")
+                .help(engine.isTaskLocked ? "Switch to this task (resets the timer)" : "Start a focus session on this task")
             }
         }
         .padding(.vertical, 2)
+        .taskSwitchConfirmation($pendingSwitch, engine: engine) {
+            dismissWindow(id: WindowID.main)
+        }
     }
 }
 

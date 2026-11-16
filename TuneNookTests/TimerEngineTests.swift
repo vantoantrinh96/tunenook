@@ -119,6 +119,51 @@ struct TimerEngineTests {
         #expect(recorder.records.last?.kind == .shortBreak)
         #expect(recorder.records.last?.completed == false)
     }
+
+    @Test func pickingTaskAfterStartingWithoutOneKeepsTimer() {
+        let (engine, recorder) = makeEngine()
+        let task = TodoTask(title: "Write", estimatedSessions: 1)
+        engine.start()
+        clock.advance(minutes: 5)
+        #expect(!engine.isTaskLocked)
+        #expect(engine.requestSwitch(to: task, startNow: false) == nil)
+
+        #expect(engine.currentTask === task)
+        #expect(engine.isRunning)
+        #expect(recorder.records.isEmpty)
+    }
+
+    @Test func switchingTaskMidSessionNeedsConfirmAndResets() {
+        let (engine, recorder) = makeEngine()
+        let first = TodoTask(title: "Write", estimatedSessions: 1)
+        let second = TodoTask(title: "Review", estimatedSessions: 1)
+        engine.start(task: first)
+        clock.advance(minutes: 5)
+        engine.pause()
+
+        let change = engine.requestSwitch(to: second, startNow: false)
+        #expect(change != nil)
+        #expect(engine.currentTask === first)
+        #expect(engine.isPaused)
+
+        engine.confirm(change!)
+        #expect(engine.currentTask === second)
+        #expect(engine.status == .idle)
+        #expect(engine.remaining == 25 * 60)
+        #expect(recorder.records.map(\.completed) == [false])
+        #expect(recorder.records.first?.task === first)
+    }
+
+    @Test func switchingDuringBreakIsFree() {
+        let (engine, _) = makeEngine()
+        engine.start(task: TodoTask(title: "Write", estimatedSessions: 1))
+        clock.advance(minutes: 25)
+        engine.tick()
+        engine.start()
+        #expect(engine.requestSwitch(to: TodoTask(title: "Review", estimatedSessions: 1), startNow: false) == nil)
+        #expect(engine.phase == .shortBreak)
+        #expect(engine.isRunning)
+    }
 }
 
 @MainActor

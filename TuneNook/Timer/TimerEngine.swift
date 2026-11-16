@@ -80,6 +80,11 @@ final class TimerEngine {
 
     var isActive: Bool { status != .idle }
 
+    /// A focus session in progress belongs to its task: switching tasks means starting over.
+    var isTaskLocked: Bool {
+        phase == .focus && isActive && currentTask != nil
+    }
+
     /// Position inside the current long-break cycle, e.g. 2 of 4.
     var cyclePosition: Int {
         completedFocusCount % settings.longBreakInterval
@@ -94,6 +99,14 @@ final class TimerEngine {
         now = clock()
         phaseStartedAt = now
         run(for: settings.duration(of: phase))
+    }
+
+    /// Picks the task to focus on. If a focus session for another task is in progress,
+    /// it is stopped without counting and the timer resets.
+    func selectTask(_ task: TodoTask?) {
+        guard task != currentTask else { return }
+        if isTaskLocked { abandon() }
+        currentTask = task
     }
 
     /// Starts a focus session on `task`, abandoning any phase in progress.

@@ -117,6 +117,7 @@ private struct CycleDots: View {
 private struct TaskLine: View {
     @Environment(TimerEngine.self) private var engine
     @Query(sort: \Topic.createdAt) private var topics: [Topic]
+    @State private var pendingSwitch: TaskSwitch?
 
     var body: some View {
         HStack(spacing: 8) {
@@ -142,6 +143,7 @@ private struct TaskLine: View {
             taskMenu
         }
         .font(.callout)
+        .taskSwitchConfirmation($pendingSwitch, engine: engine)
     }
 
     private var taskMenu: some View {
@@ -151,12 +153,15 @@ private struct TaskLine: View {
                 if !open.isEmpty {
                     Section(topic.name) {
                         ForEach(open) { task in
-                            Button(task.title) { engine.currentTask = task }
+                            Button(task.title) {
+                                pendingSwitch = engine.requestSwitch(to: task, startNow: false)
+                            }
+                            .disabled(task == engine.currentTask)
                         }
                     }
                 }
             }
-            if engine.currentTask != nil {
+            if engine.currentTask != nil && !engine.isTaskLocked {
                 Divider()
                 Button("Clear Task") { engine.currentTask = nil }
             }
@@ -166,7 +171,7 @@ private struct TaskLine: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("Choose a task")
+        .help(engine.isTaskLocked ? "Switch task (resets the timer)" : "Choose a task")
     }
 }
 
