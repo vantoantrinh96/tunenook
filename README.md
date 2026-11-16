@@ -63,7 +63,7 @@ Work on a branch, push it and open a pull request into `main`. PRs merge with a 
 
 ### Versioning
 
-PR titles follow [Conventional Commits](https://www.conventionalcommits.org), and a check fails the PR if the title doesn't match. When a PR is merged into `main` and CI passes, the [Release workflow](.github/workflows/release.yml) bumps the version in `project.yml` from the title and tags the commit. Only a version bump builds the app. The Release build is zipped and published as a GitHub Release. The release includes a SHA-256 checksum and notes generated from the merged PRs.
+PR titles follow [Conventional Commits](https://www.conventionalcommits.org), and a check fails the PR if the title doesn't match. When a PR is merged into `main` and CI passes, the [Release workflow](.github/workflows/release.yml) bumps the version in `project.yml` and tags the commit. It looks at every PR merged since the last release, including all PRs of a merged stack, and applies the biggest bump among their titles. For example, a stack with a `fix:` and a `feat:` gets a minor bump. Only a version bump builds the app. The Release build is zipped and published as a GitHub Release. The release includes a SHA-256 checksum and notes generated from the merged PRs.
 
 The app is ad-hoc signed and not notarized. The first time you open a downloaded build, right-click the app and choose **Open**, or run `xattr -dr com.apple.quarantine TuneNook.app`.
 
