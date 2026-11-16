@@ -1,6 +1,7 @@
 name: Release
 
-# After CI passes on main, bump the version from the merged PR's title, tag it and publish a release.
+# After CI passes on main, bump the version from the merged PR's title and tag it.
+# Only a bump builds the app: the Release build is zipped and published as a GitHub Release.
 on:
   workflow_run:
     workflows: [CI]
@@ -16,10 +17,13 @@ permissions:
   pull-requests: read
 
 jobs:
-  release:
+  version:
+    name: Bump version
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
@@ -46,7 +50,8 @@ jobs:
           echo "number=$number" >> "$GITHUB_OUTPUT"
           echo "level=$level" >> "$GITHUB_OUTPUT"
 
-      - name: Bump, tag and release
+      - name: Bump and tag
+        id: bump
         if: contains(fromJSON('["major","minor","patch"]'), steps.pr.outputs.level)
         env:
           LEVEL: ${{ steps.pr.outputs.level }}
@@ -58,5 +63,42 @@ jobs:
           git commit -am "chore(release): v$version" -m "From #$NUMBER."
           git tag -a "v$version" -m "TuneNook $version"
           git push origin HEAD:main "v$version"
-          gh release create "v$version" --repo "$REPO" --title "TuneNook $version" --generate-notes --verify-tag
-          echo "Released **v$version** ($LEVEL bump from #$NUMBER)." >> "$GITHUB_STEP_SUMMARY"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Bumped to **v$version** ($LEVEL, from #$NUMBER)." >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Build & publish
+    needs: version
+    if: needs.version.outputs.version != ''
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: v${{ needs.version.outputs.version }}
+
+      - name: Build Release
+        run: |
+          brew install xcodegen
+          xcodegen generate
+          xcodebuild -scheme TuneNook -configuration Release -destination 'generic/platform=macOS' \
+            -derivedDataPath build build
+
+      - name: Package
+        run: |
+          cd build/Build/Products/Release
+          ditto -c -k --keepParent TuneNook.app "$GITHUB_WORKSPACE/TuneNook-$VERSION.zip"
+          cd "$GITHUB_WORKSPACE"
+          shasum -a 256 "TuneNook-$VERSION.zip" > "TuneNook-$VERSION.zip.sha256"
+          cat "TuneNook-$VERSION.zip.sha256"
+
+      - name: Publish GitHub Release
+        run: |
+          gh release create "v$VERSION" --repo "$REPO" --verify-tag \
+            --title "TuneNook $VERSION" --generate-notes \
+            "TuneNook-$VERSION.zip" "TuneNook-$VERSION.zip.sha256"
+          echo "Published **TuneNook $VERSION** with TuneNook-$VERSION.zip." >> "$GITHUB_STEP_SUMMARY"

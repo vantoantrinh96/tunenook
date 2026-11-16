@@ -59,11 +59,13 @@ Work on a branch, push it and open a pull request into `main`. PRs merge with a 
 [CI](.github/workflows/ci.yml) runs on every pull request into `main` and again after the merge:
 
 1. **Security scan** (Linux): [Gitleaks](https://github.com/gitleaks/gitleaks) checks the whole git history for secrets, and [Semgrep](https://semgrep.dev) checks the code with the Swift, secrets and GitHub Actions rule packs.
-2. **Build & test** (macOS, runs only if the scan passes): generates the project with XcodeGen, then builds and runs the test suite.
+2. **Test** (macOS, runs only if the scan passes): generates the project with XcodeGen and runs the test suite.
 
 ### Versioning
 
-PR titles follow [Conventional Commits](https://www.conventionalcommits.org), and a check fails the PR if the title doesn't match. When a PR is merged into `main` and CI passes, the [Release workflow](.github/workflows/release.yml) bumps the version in `project.yml` from the title. It then tags the commit and publishes a GitHub Release with notes generated from the merged PRs.
+PR titles follow [Conventional Commits](https://www.conventionalcommits.org), and a check fails the PR if the title doesn't match. When a PR is merged into `main` and CI passes, the [Release workflow](.github/workflows/release.yml) bumps the version in `project.yml` from the title and tags the commit. Only a version bump builds the app. The Release build, a universal binary for Apple silicon and Intel, is zipped and published as a GitHub Release. The release includes a SHA-256 checksum and notes generated from the merged PRs.
+
+The app is ad-hoc signed and not notarized. The first time you open a downloaded build, right-click the app and choose **Open**, or run `xattr -dr com.apple.quarantine TuneNook.app`.
 
 | PR title | Bump | Example |
 |---|---|---|
