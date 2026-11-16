@@ -61,6 +61,19 @@ Work on a branch, push it and open a pull request into `main`. PRs merge with a 
 1. **Security scan** (Linux): [Gitleaks](https://github.com/gitleaks/gitleaks) checks the whole git history for secrets, and [Semgrep](https://semgrep.dev) checks the code with the Swift, secrets and GitHub Actions rule packs.
 2. **Build & test** (macOS, runs only if the scan passes): generates the project with XcodeGen, then builds and runs the test suite.
 
+### Versioning
+
+PR titles follow [Conventional Commits](https://www.conventionalcommits.org), and a check fails the PR if the title doesn't match. When a PR is merged into `main` and CI passes, the [Release workflow](.github/workflows/release.yml) bumps the version in `project.yml` from the title. It then tags the commit and publishes a GitHub Release with notes generated from the merged PRs.
+
+| PR title | Bump | Example |
+|---|---|---|
+| `feat: …` | minor | 0.3.0 → 0.4.0 |
+| `fix: …`, `perf: …` | patch | 0.3.0 → 0.3.1 |
+| `feat!: …`, `fix!: …` (any type with `!`) | major | 0.3.0 → 1.0.0 |
+| `docs`, `chore`, `ci`, `test`, `refactor`, `build`, `style`, `revert` | none | |
+
+A scope is optional: `fix(radio): reconnect after sleep`. The build number (`CURRENT_PROJECT_VERSION`) goes up by one with every release. Try a title locally with `scripts/release.sh level "feat: weekly stats"`.
+
 Changes that only touch Markdown skip CI. The repo is private on GitHub Free, so GitHub can't enforce branch rules on the server. The hook is the guard, and `git push --no-verify` gets past it.
 
 ## Structure

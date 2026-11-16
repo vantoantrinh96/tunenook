@@ -1,0 +1,62 @@
+name: Release
+
+# After CI passes on main, bump the version from the merged PR's title, tag it and publish a release.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      MERGED_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Find the merged PR
+        id: pr
+        run: |
+          pr=$(gh api "repos/$REPO/commits/$MERGED_SHA/pulls" --jq '[.[] | select(.merged_at != null)][0]')
+          if [ -z "$pr" ] || [ "$pr" = "null" ]; then
+            echo "No merged PR for $MERGED_SHA; nothing to release." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "level=none" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          title=$(jq -r .title <<<"$pr")
+          number=$(jq -r .number <<<"$pr")
+          level=$(scripts/release.sh level "$title" || true)
+          echo "PR #$number \"$title\" → $level" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+          echo "level=$level" >> "$GITHUB_OUTPUT"
+
+      - name: Bump, tag and release
+        if: contains(fromJSON('["major","minor","patch"]'), steps.pr.outputs.level)
+        env:
+          LEVEL: ${{ steps.pr.outputs.level }}
+          NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          version=$(scripts/release.sh bump "$LEVEL")
+          git commit -am "chore(release): v$version" -m "From #$NUMBER."
+          git tag -a "v$version" -m "TuneNook $version"
+          git push origin HEAD:main "v$version"
+          gh release create "v$version" --repo "$REPO" --title "TuneNook $version" --generate-notes --verify-tag
+          echo "Released **v$version** ($LEVEL bump from #$NUMBER)." >> "$GITHUB_STEP_SUMMARY"
