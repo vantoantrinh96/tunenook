@@ -116,11 +116,14 @@ final class TimerEngine {
         start(task: task)
     }
 
-    func pause() {
+    /// Pauses the running phase. `asOf` backdates the pause, e.g. to when the user went idle,
+    /// so time away isn't counted. It never goes back past the start of the current run.
+    func pause(asOf date: Date? = nil) {
         guard case .running(let endsAt) = status else { return }
         now = clock()
-        status = .paused(remaining: max(0, endsAt.timeIntervalSince(now)))
-        accumulateRun(until: now)
+        let pausedAt = min(now, max(date ?? now, runStartedAt ?? now))
+        status = .paused(remaining: max(0, endsAt.timeIntervalSince(pausedAt)))
+        accumulateRun(until: pausedAt)
         onRunningCancelled?()
     }
 

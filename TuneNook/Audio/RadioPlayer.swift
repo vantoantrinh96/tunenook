@@ -87,6 +87,14 @@ final class RadioPlayer {
         player.play()
     }
 
+    /// Picks the next or previous station, wrapping around. Keeps playing if the radio is on.
+    func selectStation(offset: Int) {
+        guard !stations.isEmpty else { return }
+        let index = stations.firstIndex { $0.id == selectedStationID } ?? 0
+        let next = (index + offset % stations.count + stations.count) % stations.count
+        selectedStationID = stations[next].id
+    }
+
     func stop() {
         fadeTask?.cancel()
         playingStationID = nil

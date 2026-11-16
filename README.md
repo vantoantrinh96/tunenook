@@ -16,6 +16,10 @@ A cozy focus nook in your macOS menu bar: a task-driven focus timer with built-i
 - **Celebrations** (v0.3): confetti when you reach your daily goal, hit a streak milestone (3, 7, 14, 30… days) or unlock an icon. Set it to off, milestones only or every session. It respects Reduce Motion.
 - **Unlockable menu bar icons** (v0.3): 10 icons earned by sessions finished, best streak and goal days. Pick one in Settings → Rewards or on the Progress page.
 - **Smart music rules** (v0.3): on a break, keep playing, lower the volume, stop or switch to a break station. Pausing the timer pauses the music and resuming continues it; stopping the timer stops it. Music never starts by itself; you press play.
+- **Open at login**: one switch in Settings → General, using the system login items.
+- **Global shortcut**: start or pause from any app, ⌃⌥P by default. You can record another shortcut in Settings or turn it off. It needs no Accessibility permission.
+- **Auto-pause when away**: focus pauses when the Mac locks or sleeps, and optionally after 2–15 idle minutes. Idle time isn't counted, and a notification with **Resume Focus** greets you when you're back.
+- **Media keys & Now Playing**: ⏯ on the keyboard or AirPods plays and pauses the radio, ⏭/⏮ change station, and the station shows in Control Center.
 - **Sleep-proof**: remaining time comes from an end date, so the timer catches up correctly after sleep.
 
 ## Roadmap
@@ -88,7 +92,8 @@ TuneNook/
   Progress/       Daily goals, focus-day calendar, streak & heatmap stats
   Rewards/        Icon unlocks, celebration rules and the overlay
   Audio/          RadioPlayer (AVPlayer), stations and music rules
-  Notifications/  Phase-end notifications
+  System/         Launch at login, global shortcut, away detection
+  Notifications/  Phase-end, goal and away notifications
   Views/          Menu bar popover, main window, progress page, settings
   Resources/      stations.json
 TuneNookTests/    Timer, streak, reward and music rule tests (Swift Testing)

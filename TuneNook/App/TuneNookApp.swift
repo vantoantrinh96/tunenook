@@ -7,10 +7,14 @@ struct TuneNookApp: App {
     private let container: ModelContainer
     private let notifications: NotificationService
     private let coordinator: SessionCoordinator
+    private let awayMonitor: AwayMonitor
+    private let nowPlaying: NowPlayingController
     @State private var engine: TimerEngine
     @State private var radio: RadioPlayer
     @State private var goalStore: GoalStore
     @State private var rewards: RewardStore
+    @State private var launchAtLogin = LaunchAtLogin()
+    @State private var hotKeys: HotKeyCenter
 
     init() {
         let container: ModelContainer
@@ -35,12 +39,22 @@ struct TuneNookApp: App {
         )
         coordinator.attach()
 
+        let awayMonitor = AwayMonitor(engine: engine, notifications: notifications)
+        awayMonitor.start()
+        notifications.onResumeRequested = { [weak engine] in engine?.resume() }
+        let nowPlaying = NowPlayingController(radio: radio)
+        nowPlaying.start()
+        let hotKeys = HotKeyCenter { [weak engine] in engine?.toggle() }
+
         notifications.requestAuthorization()
         engine.startTicking()
 
         self.container = container
         self.notifications = notifications
         self.coordinator = coordinator
+        self.awayMonitor = awayMonitor
+        self.nowPlaying = nowPlaying
+        _hotKeys = State(initialValue: hotKeys)
         _engine = State(initialValue: engine)
         _radio = State(initialValue: radio)
         _goalStore = State(initialValue: goalStore)
@@ -75,6 +89,8 @@ struct TuneNookApp: App {
                 .environment(radio)
                 .environment(goalStore)
                 .environment(rewards)
+                .environment(launchAtLogin)
+                .environment(hotKeys)
                 .modelContainer(container)
         }
     }
