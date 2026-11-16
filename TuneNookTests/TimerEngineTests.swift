@@ -148,7 +148,7 @@ struct TimerEngineTests {
 
         engine.confirm(change!)
         #expect(engine.currentTask === second)
-        #expect(engine.status == .idle)
+        #expect(engine.isRunning)
         #expect(engine.remaining == 25 * 60)
         #expect(recorder.records.map(\.completed) == [false])
         #expect(recorder.records.first?.task === first)
