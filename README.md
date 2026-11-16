@@ -46,6 +46,23 @@ open build/Build/Products/Debug/TuneNook.app
 
 The Xcode project, `Info.plist` and entitlements are generated, so edit `project.yml` instead.
 
+## Workflow & CI
+
+`main` only changes through pull requests. After cloning, turn on the repo's git hooks once:
+
+```sh
+git config core.hooksPath .githooks   # pre-push hook blocks direct pushes to main
+```
+
+Work on a branch, push it and open a pull request into `main`. PRs merge with a merge commit (squash and rebase merges are off).
+
+[CI](.github/workflows/ci.yml) runs on every pull request into `main` and again after the merge:
+
+1. **Security scan** (Linux): [Gitleaks](https://github.com/gitleaks/gitleaks) checks the whole git history for secrets, and [Semgrep](https://semgrep.dev) checks the code with the Swift, secrets and GitHub Actions rule packs.
+2. **Build & test** (macOS, runs only if the scan passes): generates the project with XcodeGen, then builds and runs the test suite.
+
+Changes that only touch Markdown skip CI. The repo is private on GitHub Free, so GitHub can't enforce branch rules on the server. The hook is the guard, and `git push --no-verify` gets past it.
+
 ## Structure
 
 ```
