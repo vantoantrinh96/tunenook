@@ -2,6 +2,8 @@
 # Versioning helpers for CI, driven by Conventional Commit PR titles.
 #
 #   scripts/release.sh level "<PR title>"   prints major | minor | patch | none
+#   scripts/release.sh highest              reads PR titles (one per line) on stdin,
+#                                           prints the biggest bump among them
 #   scripts/release.sh current              prints the version in project.yml
 #   scripts/release.sh bump <level>         bumps project.yml, prints the new version
 set -euo pipefail
@@ -25,6 +27,21 @@ level() {
     else
         echo "none"
     fi
+}
+
+highest() {
+    local best=none title level
+    while IFS= read -r title || [[ -n "$title" ]]; do
+        [[ -z "$title" ]] && continue
+        level=$(level "$title") || continue # titles that don't parse don't release
+        case "$best:$level" in
+            major:*|*:none) ;;
+            minor:major|patch:major|none:major) best=major ;;
+            patch:minor|none:minor) best=minor ;;
+            none:patch) best=patch ;;
+        esac
+    done
+    echo "$best"
 }
 
 current() {
@@ -57,7 +74,8 @@ bump() {
 
 case "${1:-}" in
     level) level "${2:-}" ;;
+    highest) highest ;;
     current) current ;;
     bump) bump "${2:-}" ;;
-    *) sed -n '2,7p' "$0" >&2; exit 2 ;;
+    *) sed -n '2,9p' "$0" >&2; exit 2 ;;
 esac

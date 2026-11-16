@@ -34,37 +34,56 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Find the merged PR
+      - name: Find PRs merged since the last release
         id: pr
+        # A stack merges several PRs at once (upper PRs into the branch below them), and a failed
+        # release leaves PRs for the next one. So take every PR merged since the last tag whose
+        # commits are now on main, and use the biggest bump among them.
         run: |
-          pr=$(gh api "repos/$REPO/commits/$MERGED_SHA/pulls" --jq '[.[] | select(.merged_at != null)][0]')
-          if [ -z "$pr" ] || [ "$pr" = "null" ]; then
-            echo "No merged PR for $MERGED_SHA; nothing to release." | tee -a "$GITHUB_STEP_SUMMARY"
+          last=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
+          since=${last:+$(git log -1 --format=%cI "$last")}
+          echo "Last release: ${last:-none}" >> "$GITHUB_STEP_SUMMARY"
+          gh pr list --repo "$REPO" --state merged --limit 200 \
+            --search "${since:+merged:>$since}" \
+            --json number,title,headRefOid \
+            --jq '.[] | "\(.number)\t\(.headRefOid)\t\(.title)"' |
+          while IFS=$'\t' read -r number head title; do
+            if git merge-base --is-ancestor "$head" HEAD 2>/dev/null; then
+              printf '%s\t%s\n' "$number" "$title"
+            fi
+          done | sort -n > prs.tsv
+
+          if [ ! -s prs.tsv ]; then
+            echo "No merged PRs since ${last:-the start}; nothing to release." | tee -a "$GITHUB_STEP_SUMMARY"
             echo "level=none" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          title=$(jq -r .title <<<"$pr")
-          number=$(jq -r .number <<<"$pr")
-          level=$(scripts/release.sh level "$title" || true)
-          echo "PR #$number \"$title\" → $level" | tee -a "$GITHUB_STEP_SUMMARY"
-          echo "number=$number" >> "$GITHUB_OUTPUT"
+          while IFS=$'\t' read -r number title; do
+            echo "- #$number \"$title\" → $(scripts/release.sh level "$title" || true)"
+          done < prs.tsv | tee -a "$GITHUB_STEP_SUMMARY"
+
+          level=$(cut -f2- prs.tsv | scripts/release.sh highest)
+          numbers=$(cut -f1 prs.tsv | sed 's/^/#/' | paste -sd ' ' -)
+          echo "Bump: **$level**" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "level=$level" >> "$GITHUB_OUTPUT"
+          echo "numbers=$numbers" >> "$GITHUB_OUTPUT"
+          rm prs.tsv
 
       - name: Bump and tag
         id: bump
         if: contains(fromJSON('["major","minor","patch"]'), steps.pr.outputs.level)
         env:
           LEVEL: ${{ steps.pr.outputs.level }}
-          NUMBER: ${{ steps.pr.outputs.number }}
+          NUMBERS: ${{ steps.pr.outputs.numbers }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
           version=$(scripts/release.sh bump "$LEVEL")
-          git commit -am "chore(release): v$version" -m "From #$NUMBER."
+          git commit -am "chore(release): v$version" -m "Includes $NUMBERS."
           git tag -a "v$version" -m "TuneNook $version"
           git push origin HEAD:main "v$version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Bumped to **v$version** ($LEVEL, from #$NUMBER)." >> "$GITHUB_STEP_SUMMARY"
+          echo "Bumped to **v$version** ($LEVEL, from $NUMBERS)." >> "$GITHUB_STEP_SUMMARY"
 
   build:
     name: Build & publish
