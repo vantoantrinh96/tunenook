@@ -10,17 +10,16 @@ struct MusicRulesTests {
         return rules.command(for: moment, musicActive: active, focusStationID: focus)
     }
 
-    @Test func focusAutoPlays() {
-        #expect(command(.focus, active: false) == .play(stationID: focus, volume: 1))
-        #expect(command(.focus, active: false) { $0.autoPlayOnFocus = false } == .leaveAlone)
-        // Music that was on, or paused by a rule, always returns for focus.
-        #expect(command(.focus, active: true) { $0.autoPlayOnFocus = false } == .play(stationID: focus, volume: 1))
+    @Test func focusNeverStartsMusic() {
+        #expect(command(.focus, active: false) == .leaveAlone)
+        // Music that is on returns to the focus station at full volume.
+        #expect(command(.focus, active: true) == .play(stationID: focus, volume: 1))
     }
 
     @Test func breakActions() {
         #expect(command(.breakTime, active: true) == .play(stationID: focus, volume: MusicRules.breakVolume))
         #expect(command(.breakTime, active: true) { $0.breakAction = .keepPlaying } == .play(stationID: focus, volume: 1))
-        #expect(command(.breakTime, active: true) { $0.breakAction = .pause } == .suspend)
+        #expect(command(.breakTime, active: true) { $0.breakAction = .stop } == .stop)
         #expect(command(.breakTime, active: true) {
             $0.breakAction = .switchStation
             $0.breakStationID = "dronezone"
@@ -33,11 +32,9 @@ struct MusicRulesTests {
         }
     }
 
-    @Test func pauseAndStopFollowTimer() {
-        #expect(command(.paused, active: true) == .suspend)
-        #expect(command(.paused, active: true) { $0.pauseWithTimer = false } == .leaveAlone)
+    @Test func pauseAndStopStopMusic() {
+        #expect(command(.paused, active: true) == .stop)
         #expect(command(.stopped, active: true) == .stop)
-        #expect(command(.stopped, active: true) { $0.stopWithTimer = false } == .leaveAlone)
     }
 
     @Test func skippedBreakRestoresFocusMusic() {

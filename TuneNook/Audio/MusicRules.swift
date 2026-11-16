@@ -5,51 +5,42 @@ struct MusicRules: Equatable, Sendable {
     enum BreakAction: String, CaseIterable, Sendable {
         case keepPlaying
         case lowerVolume
-        case pause
+        case stop
         case switchStation
 
         var title: String {
             switch self {
             case .keepPlaying: "Keep playing"
             case .lowerVolume: "Lower the volume"
-            case .pause: "Pause the music"
+            case .stop: "Stop the music"
             case .switchStation: "Switch station"
             }
         }
     }
 
-    var autoPlayOnFocus = true
     var breakAction: BreakAction = .lowerVolume
     var breakStationID: String?
-    var pauseWithTimer = true
-    var stopWithTimer = true
 
     static let breakVolume: Float = 0.3
 
     enum Key {
-        static let autoPlayOnFocus = "radio.autoPlayOnFocus"
         static let breakAction = "music.breakAction"
         static let breakStationID = "music.breakStationID"
-        static let pauseWithTimer = "music.pauseWithTimer"
-        static let stopWithTimer = "music.stopWithTimer"
     }
 
     static func load(from defaults: UserDefaults = .standard) -> MusicRules {
         var rules = MusicRules()
-        if let value = defaults.object(forKey: Key.autoPlayOnFocus) as? Bool { rules.autoPlayOnFocus = value }
         if let raw = defaults.string(forKey: Key.breakAction), let action = BreakAction(rawValue: raw) {
             rules.breakAction = action
         }
         rules.breakStationID = defaults.string(forKey: Key.breakStationID)
-        if let value = defaults.object(forKey: Key.pauseWithTimer) as? Bool { rules.pauseWithTimer = value }
-        if let value = defaults.object(forKey: Key.stopWithTimer) as? Bool { rules.stopWithTimer = value }
         return rules
     }
 }
 
 /// Where the timer is, as far as music is concerned.
 enum MusicMoment: Equatable, Sendable {
-    /// Focus started or resumed.
+    /// Focus started or resumed: restores the focus station and volume if music is on.
     case focus
     /// A focus session finished, or a break started or resumed.
     case breakTime
@@ -66,21 +57,19 @@ enum MusicCommand: Equatable, Sendable {
     case leaveAlone
     /// Play a station at a volume. Doesn't restart a station that is already playing.
     case play(stationID: String, volume: Float)
-    /// Go quiet but come back at the next focus.
-    case suspend
-    /// Go quiet for good.
+    /// Turn the radio off. It only comes back when the user plays it.
     case stop
 }
 
 extension MusicRules {
     /// - Parameters:
-    ///   - musicActive: whether music is on, or was silenced by a rule and should come back.
+    ///   - musicActive: whether the radio is on. Rules never turn it on; only the user does.
     ///   - focusStationID: the station picked in the radio panel.
     func command(for moment: MusicMoment, musicActive: Bool, focusStationID: String) -> MusicCommand {
         let focusPlay = MusicCommand.play(stationID: focusStationID, volume: 1)
         switch moment {
         case .focus:
-            return musicActive || autoPlayOnFocus ? focusPlay : .leaveAlone
+            return musicActive ? focusPlay : .leaveAlone
         case .focusReady:
             return musicActive ? focusPlay : .leaveAlone
         case .breakTime:
@@ -90,15 +79,13 @@ extension MusicRules {
                 return focusPlay
             case .lowerVolume:
                 return .play(stationID: focusStationID, volume: Self.breakVolume)
-            case .pause:
-                return .suspend
+            case .stop:
+                return .stop
             case .switchStation:
                 return .play(stationID: breakStationID ?? focusStationID, volume: 1)
             }
-        case .paused:
-            return musicActive && pauseWithTimer ? .suspend : .leaveAlone
-        case .stopped:
-            return musicActive && stopWithTimer ? .stop : .leaveAlone
+        case .paused, .stopped:
+            return musicActive ? .stop : .leaveAlone
         }
     }
 }
@@ -108,8 +95,6 @@ extension MusicRules {
 final class MusicDirector {
     private let radio: RadioPlayer
     private let rules: () -> MusicRules
-    /// True when a rule silenced music that should come back at the next focus.
-    private(set) var suspended = false
 
     init(radio: RadioPlayer, rules: @escaping () -> MusicRules = { MusicRules.load() }) {
         self.radio = radio
@@ -124,22 +109,15 @@ final class MusicDirector {
         }
         let command = rules.command(
             for: moment,
-            musicActive: radio.isOn || suspended,
+            musicActive: radio.isOn,
             focusStationID: radio.selectedStationID
         )
         switch command {
         case .leaveAlone:
             break
         case .play(let stationID, let volume):
-            suspended = false
             radio.play(stationID: stationID, volume: volume)
-        case .suspend:
-            if radio.isOn {
-                radio.stop()
-                suspended = true
-            }
         case .stop:
-            suspended = false
             radio.stop()
         }
     }

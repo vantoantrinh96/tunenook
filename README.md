@@ -9,13 +9,13 @@ A cozy focus nook in your macOS menu bar: a task-driven focus timer with built-i
 - **Menu bar timer**: time left shows in the menu bar. Start, pause, resume, stop and skip from a popover. Press Space to start or pause.
 - **Topics & tasks**: group to-dos by topic, estimate focus sessions per task and track actual against estimate.
 - **Focus cycle**: focus, short break and a long break every N sessions (Pomodoro-style by default), all configurable. Breaks can start automatically.
-- **Focus Radio**: one-click internet radio from [SomaFM](https://somafm.com). Can start automatically with each focus session.
+- **Focus Radio**: one-click internet radio from [SomaFM](https://somafm.com).
 - **Notifications** when a phase ends. They are scheduled ahead of time, so they fire even when the app is idle.
 - **Daily goal & streaks** (v0.2): set a daily target in focus minutes or sessions. Meeting it grows your streak, and every 7-day streak earns a freeze (max 2) that covers a missed day. You can set when a new day starts, for night owls.
 - **Progress page** (v0.2): today's ring, current and best streak, freezes, last 7 days, a GitHub-style heatmap of focus history and deadline pacing per topic (sessions per day needed).
 - **Celebrations** (v0.3): confetti when you reach your daily goal, hit a streak milestone (3, 7, 14, 30… days) or unlock an icon. Set it to off, milestones only or every session. It respects Reduce Motion.
 - **Unlockable menu bar icons** (v0.3): 10 icons earned by sessions finished, best streak and goal days. Pick one in Settings → Rewards or on the Progress page.
-- **Smart music rules** (v0.3): on a break, keep playing, lower the volume, pause or switch to a break station. Music can also pause and stop with the timer, and comes back when focus resumes.
+- **Smart music rules** (v0.3): on a break, keep playing, lower the volume, stop or switch to a break station. Pausing or stopping the timer stops the music. Music never starts by itself; you press play.
 - **Sleep-proof**: remaining time comes from an end date, so the timer catches up correctly after sleep.
 
 ## Roadmap

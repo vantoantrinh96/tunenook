@@ -109,16 +109,12 @@ private struct GoalSettingsTab: View {
 
 private struct MusicSettingsTab: View {
     @Environment(RadioPlayer.self) private var radio
-    @AppStorage(MusicRules.Key.autoPlayOnFocus) private var autoPlayOnFocus = true
     @AppStorage(MusicRules.Key.breakAction) private var breakAction = MusicRules.BreakAction.lowerVolume
     @AppStorage(MusicRules.Key.breakStationID) private var breakStationID = ""
-    @AppStorage(MusicRules.Key.pauseWithTimer) private var pauseWithTimer = true
-    @AppStorage(MusicRules.Key.stopWithTimer) private var stopWithTimer = true
 
     var body: some View {
         Form {
             Section {
-                Toggle("Play radio when focus starts", isOn: $autoPlayOnFocus)
                 Picker("When a break starts", selection: $breakAction) {
                     ForEach(MusicRules.BreakAction.allCases, id: \.self) { action in
                         Text(action.title).tag(action)
@@ -131,12 +127,10 @@ private struct MusicSettingsTab: View {
                         }
                     }
                 }
-                Toggle("Pause music when the timer is paused", isOn: $pauseWithTimer)
-                Toggle("Stop music when the timer is stopped", isOn: $stopWithTimer)
             } header: {
                 Text("Smart rules")
             } footer: {
-                Text("Focus always plays the station picked in the menu bar, at full volume. Music paused by a rule comes back when focus resumes.")
+                Text("Pausing or stopping the timer stops the music. Music never starts by itself: press play in the menu bar when you want it. When focus resumes, the menu bar station returns at full volume.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
