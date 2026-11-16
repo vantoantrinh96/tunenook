@@ -10,6 +10,8 @@ settings:
     MARKETING_VERSION: "0.3.0"
     CURRENT_PROJECT_VERSION: "1"
     DEVELOPMENT_TEAM: ""
+    # Apple silicon only; Intel Macs are not supported.
+    ARCHS: arm64
 targets:
   TuneNook:
     type: application

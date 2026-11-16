@@ -37,10 +37,11 @@ final class CelebrationCenter {
     }
 
     private func dismiss(_ panel: NSPanel) async {
-        await NSAnimationContext.runAnimationGroup { context in
+        NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.3
             panel.animator().alphaValue = 0
-        }
+        }, completionHandler: nil)
+        try? await Task.sleep(for: .milliseconds(300))
         panel.orderOut(nil)
         panel.contentView = nil
         isShowing = false
