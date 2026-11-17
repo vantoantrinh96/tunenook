@@ -50,6 +50,8 @@ open build/Build/Products/Debug/TuneNook.app
 
 The Xcode project, `Info.plist` and entitlements are generated, so edit `project.yml` instead.
 
+The app icon comes from `design/app-icon.svg`. After editing it, run `swift scripts/render-app-icon.swift` to regenerate the PNGs in `AppIcon.appiconset`.
+
 ## Workflow & CI
 
 `main` only changes through pull requests. After cloning, turn on the repo's git hooks once:
@@ -95,8 +97,10 @@ TuneNook/
   System/         Launch at login, global shortcut, away detection
   Notifications/  Phase-end, goal and away notifications
   Views/          Menu bar popover, main window, progress page, settings
-  Resources/      stations.json
+  Resources/      stations.json, Assets.xcassets (app icon)
 TuneNookTests/    Timer, streak, reward and music rule tests (Swift Testing)
+design/           App icon source (SVG)
+scripts/          Release versioning, app icon rendering
 ```
 
 Streaks and the heatmap are derived from `FocusSession` rows, so there is a single source of truth. Goal changes are stored as a history, so raising the goal today never rewrites past days.
