@@ -3,6 +3,8 @@ import SwiftUI
 struct SettingsView: View {
     var body: some View {
         TabView {
+            GeneralSettingsTab()
+                .tabItem { Label("General", systemImage: "gearshape") }
             TimerSettingsTab()
                 .tabItem { Label("Timer", systemImage: "timer") }
             GoalSettingsTab()
@@ -13,6 +15,59 @@ struct SettingsView: View {
                 .tabItem { Label("Rewards", systemImage: "gift") }
         }
         .frame(width: 460)
+    }
+}
+
+private struct GeneralSettingsTab: View {
+    @Environment(LaunchAtLogin.self) private var launchAtLogin
+    @AppStorage(AwayPolicy.Key.pauseOnLock) private var pauseOnLock = true
+    @AppStorage(AwayPolicy.Key.idleMinutes) private var idleMinutes = 0
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Open TuneNook at login", isOn: Binding(
+                    get: { launchAtLogin.isEnabled },
+                    set: { launchAtLogin.setEnabled($0) }
+                ))
+                if launchAtLogin.needsApproval {
+                    LabeledContent("Allow TuneNook in Login Items") {
+                        Button("Open System Settings") { launchAtLogin.openLoginItemsSettings() }
+                    }
+                }
+                if let error = launchAtLogin.errorMessage {
+                    Text(error)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+                LabeledContent("Start / pause shortcut") {
+                    ShortcutRecorder()
+                }
+            } header: {
+                Text("General")
+            } footer: {
+                Text("The shortcut works from any app. Media keys and AirPods play, pause and change the radio station.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
+                Toggle("Pause when the Mac locks or sleeps", isOn: $pauseOnLock)
+                Picker("Pause when idle for", selection: $idleMinutes) {
+                    ForEach(AwayPolicy.idleChoices, id: \.self) { minutes in
+                        Text(minutes == 0 ? "Never" : "\(minutes) minutes").tag(minutes)
+                    }
+                }
+            } header: {
+                Text("When you step away")
+            } footer: {
+                Text("Applies to focus sessions. Idle time isn't counted: the timer goes back to when you stopped typing or moving the mouse. A notification lets you resume when you're back.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .fixedSize(horizontal: false, vertical: true)
+        .onAppear { launchAtLogin.refresh() }
     }
 }
 

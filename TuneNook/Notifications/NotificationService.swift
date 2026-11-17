@@ -6,10 +6,27 @@ import UserNotifications
 final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
     private let center = UNUserNotificationCenter.current()
     private let requestID = "tunenook.phase-end"
+    private nonisolated static let awayCategory = "tunenook.away"
+    private nonisolated static let resumeAction = "resume"
+
+    /// Called when the user taps "Resume Focus" on the away notification.
+    var onResumeRequested: (() -> Void)?
 
     override init() {
         super.init()
         center.delegate = self
+        let resume = UNNotificationAction(identifier: Self.resumeAction, title: "Resume Focus", options: [])
+        center.setNotificationCategories([
+            UNNotificationCategory(identifier: Self.awayCategory, actions: [resume], intentIdentifiers: []),
+        ])
+    }
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        guard response.actionIdentifier == Self.resumeAction else { return }
+        await MainActor.run { self.onResumeRequested?() }
     }
 
     /// A menu bar app often counts as frontmost, so ask for banners explicitly.
@@ -50,6 +67,15 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
         content.body = streak > 1 ? "That's a \(streak)-day streak. Keep it going tomorrow!" : "Great start. Come back tomorrow to build a streak."
         content.sound = .default
         center.add(UNNotificationRequest(identifier: "tunenook.goal-reached", content: content, trigger: nil))
+    }
+
+    /// Tells the user focus was paused while they were away, with a button to resume.
+    func notifyPausedWhileAway(remaining: TimeInterval) {
+        let content = UNMutableNotificationContent()
+        content.title = "Focus paused while you were away"
+        content.body = "\(remaining.clockString) left. Resume when you're ready."
+        content.categoryIdentifier = Self.awayCategory
+        center.add(UNNotificationRequest(identifier: "tunenook.away", content: content, trigger: nil))
     }
 
     func cancel() {
