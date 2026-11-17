@@ -14,20 +14,21 @@ final class NowPlayingController {
     }
 
     func start() {
+        // Handlers are @Sendable so they never assume the main actor, whichever thread calls them.
         let commands = MPRemoteCommandCenter.shared()
-        commands.togglePlayPauseCommand.addTarget { [weak self] _ in
+        commands.togglePlayPauseCommand.addTarget { @Sendable [weak self] _ in
             self?.perform { $0.toggle() } ?? .commandFailed
         }
-        commands.playCommand.addTarget { [weak self] _ in
+        commands.playCommand.addTarget { @Sendable [weak self] _ in
             self?.perform { if !$0.isOn { $0.play() } } ?? .commandFailed
         }
-        commands.pauseCommand.addTarget { [weak self] _ in
+        commands.pauseCommand.addTarget { @Sendable [weak self] _ in
             self?.perform { $0.stop() } ?? .commandFailed
         }
-        commands.nextTrackCommand.addTarget { [weak self] _ in
+        commands.nextTrackCommand.addTarget { @Sendable [weak self] _ in
             self?.perform { $0.selectStation(offset: 1) } ?? .commandFailed
         }
-        commands.previousTrackCommand.addTarget { [weak self] _ in
+        commands.previousTrackCommand.addTarget { @Sendable [weak self] _ in
             self?.perform { $0.selectStation(offset: -1) } ?? .commandFailed
         }
         track()

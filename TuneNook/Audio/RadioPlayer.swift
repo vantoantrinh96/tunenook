@@ -38,7 +38,7 @@ final class RadioPlayer {
         let saved = UserDefaults.standard.string(forKey: Self.selectedKey)
         self.selectedStationID = stations.first { $0.id == saved }?.id ?? stations.first?.id ?? ""
         player.automaticallyWaitsToMinimizeStalling = true
-        statusObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
+        statusObservation = player.observe(\.timeControlStatus, options: [.new]) { @Sendable [weak self] player, _ in
             let status = player.timeControlStatus
             Task { @MainActor in self?.handle(status) }
         }
