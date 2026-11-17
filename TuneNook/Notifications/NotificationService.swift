@@ -38,7 +38,9 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func requestAuthorization() {
-        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        // The reply comes on a background queue. Without @Sendable, older SDKs make this closure
+        // main-actor isolated and Swift 6 traps when it runs off the main thread.
+        center.requestAuthorization(options: [.alert, .sound]) { @Sendable _, _ in }
     }
 
     func schedulePhaseEnd(_ kind: SessionKind, at date: Date, taskTitle: String?) {
