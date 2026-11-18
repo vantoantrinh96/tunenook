@@ -12,6 +12,13 @@ settings:
     DEVELOPMENT_TEAM: ""
     # Apple silicon only; Intel Macs are not supported.
     ARCHS: arm64
+# Sparkle 2.10.1; tarball SHA-256 (used by release CI, Task 4):
+# SPARKLE_VERSION=2.10.1
+# SPARKLE_SHA256=1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.1
 targets:
   TuneNook:
     type: application
@@ -27,11 +34,25 @@ targets:
         LSUIElement: true
         LSApplicationCategoryType: public.app-category.productivity
         NSHumanReadableCopyright: ""
+        SUFeedURL: https://github.com/vantoantrinh96/tunenook/releases/latest/download/appcast.xml
+        SUPublicEDKey: mPUABJrxGzP3c+xoB00wOMNeVgKTZsAbSxjVm9Ei6Rs=
+        SUEnableAutomaticChecks: true
+        SUScheduledCheckInterval: 86400
+        SUEnableInstallerLauncherService: true
     entitlements:
       path: TuneNook/TuneNook.entitlements
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.network.client: true
+        # Ad-hoc signing has no Team ID, so Hardened Runtime library validation
+        # rejects the embedded Sparkle.framework. Sparkle updates are verified
+        # by EdDSA instead.
+        com.apple.security.cs.disable-library-validation: true
+        com.apple.security.temporary-exception.mach-lookup.global-name:
+          - $(PRODUCT_BUNDLE_IDENTIFIER)-spks
+          - $(PRODUCT_BUNDLE_IDENTIFIER)-spki
+    dependencies:
+      - package: Sparkle
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.vantoantrinh96.tunenook
