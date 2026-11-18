@@ -88,6 +88,7 @@ final class UpdaterController: NSObject, SPUUpdaterDelegate, SPUStandardUserDriv
     func checkForUpdates() {
         gate.userRequestedUpdate()
         notifications.clearUpdateAvailable()
+        activateApp()
         controller.updater.checkForUpdates()
     }
 
@@ -162,10 +163,21 @@ final class UpdaterController: NSObject, SPUUpdaterDelegate, SPUStandardUserDriv
         forUpdate update: SUAppcastItem,
         state: SPUUserUpdateState
     ) {
-        guard !handleShowingUpdate else { return }
         let version = update.displayVersionString
         MainActor.assumeIsolated {
-            notifications.notifyUpdateAvailable(version: version)
+            if handleShowingUpdate {
+                // A menu bar app is rarely active, so Sparkle's window would open behind other apps.
+                Task { @MainActor in Self.bringUpdateWindowForward() }
+            } else {
+                notifications.notifyUpdateAvailable(version: version)
+            }
         }
+    }
+
+    private static func bringUpdateWindowForward() {
+        activateApp()
+        NSApp.windows
+            .first { $0.windowController.map { NSStringFromClass(type(of: $0)) } == "SUUpdateAlert" }?
+            .orderFrontRegardless()
     }
 }

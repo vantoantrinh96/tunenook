@@ -28,7 +28,6 @@ struct MenuBarView: View {
             }
             Spacer()
             Button {
-                activateApp()
                 updater.checkForUpdates()
             } label: {
                 Image(systemName: "arrow.down.circle")
