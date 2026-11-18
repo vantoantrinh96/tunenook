@@ -155,6 +155,8 @@ jobs:
         env:
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
+          # Sign the zip the release actually serves: on a re-run the local build differs from it.
+          gh release download "v$VERSION" --repo "$REPO" -p "TuneNook-$VERSION.zip" --clobber
           signature=$(printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | sparkle/bin/sign_update --ed-key-file - "TuneNook-$VERSION.zip")
           gh release view "v$VERSION" --repo "$REPO" --json body -q .body > notes.md
           scripts/make-appcast.sh "$VERSION" "$(scripts/release.sh build)" \
