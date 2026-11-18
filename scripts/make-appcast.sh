@@ -16,12 +16,8 @@ version="$1" build="$2" zip_url="$3" release_url="$4" signature_attrs="$5" notes
 
 # Escape for XML text and attribute values.
 xml_escape() {
-    local s="$1"
-    s="${s//&/&amp;}"
-    s="${s//</&lt;}"
-    s="${s//>/&gt;}"
-    s="${s//\"/&quot;}"
-    printf '%s' "$s"
+    # sed, not ${var//pat/rep}: bash 5.2 patsub_replacement treats & in the replacement as the match.
+    printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'
 }
 
 notes="$(cat "$notes_file")"

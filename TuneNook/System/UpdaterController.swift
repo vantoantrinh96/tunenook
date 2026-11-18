@@ -15,7 +15,7 @@ final class UpdaterController: NSObject, SPUUpdaterDelegate, SPUStandardUserDriv
     @ObservationIgnored private var gate = UpdateGate()
     @ObservationIgnored private var controller: SPUStandardUpdaterController!
     @ObservationIgnored private var kvoObservations: [NSKeyValueObservation] = []
-    /// Sparkle's install-and-relaunch block, kept while a session is active. Never invoked here:
+    /// Kept only to hold on to Sparkle's install block while a session is active. Never invoked here:
     /// the update installs when the app quits.
     @ObservationIgnored private var postponedInstall: (() -> Void)?
 
@@ -167,15 +167,17 @@ final class UpdaterController: NSObject, SPUUpdaterDelegate, SPUStandardUserDriv
         MainActor.assumeIsolated {
             if handleShowingUpdate {
                 // A menu bar app is rarely active, so Sparkle's window would open behind other apps.
-                Task { @MainActor in Self.bringUpdateWindowForward() }
+                // Only a user-initiated check may take focus; the daily background check must not.
+                let userInitiated = state.userInitiated
+                Task { @MainActor in Self.bringUpdateWindowForward(activate: userInitiated) }
             } else {
                 notifications.notifyUpdateAvailable(version: version)
             }
         }
     }
 
-    private static func bringUpdateWindowForward() {
-        activateApp()
+    private static func bringUpdateWindowForward(activate: Bool) {
+        if activate { activateApp() }
         NSApp.windows
             .first { $0.windowController.map { NSStringFromClass(type(of: $0)) } == "SUUpdateAlert" }?
             .orderFrontRegardless()

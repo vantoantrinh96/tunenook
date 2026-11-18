@@ -92,7 +92,7 @@ The app is ad-hoc signed and not notarized. The first time you open a downloaded
 
 A scope is optional: `fix(radio): reconnect after sleep`. The build number (`CURRENT_PROJECT_VERSION`) goes up by one with every release. Try a title locally with `scripts/release.sh level "feat: weekly stats"`.
 
-Changes that only touch Markdown skip CI. The repo is private on GitHub Free, so GitHub can't enforce branch rules on the server. The hook is the guard, and `git push --no-verify` gets past it.
+Changes that only touch Markdown skip CI. `main` is protected by a GitHub ruleset that requires pull requests, and the owner merges them. The local hook is only an early warning, and `git push --no-verify` skips it.
 
 ## Structure
 

@@ -12,7 +12,10 @@ settings:
     DEVELOPMENT_TEAM: ""
     # Apple silicon only; Intel Macs are not supported.
     ARCHS: arm64
-# Sparkle 2.10.1; tarball SHA-256 (used by release CI, Task 4):
+# Sparkle 2.10.1; tarball SHA-256 (used by release CI).
+# After any Sparkle version bump: update SPARKLE_VERSION/SPARKLE_SHA256 in .github/workflows/release.yml,
+# and re-check the private window-controller class names SUStatusController and SUUpdateAlert
+# used in TuneNook/System/UpdaterController.swift.
 # SPARKLE_VERSION=2.10.1
 # SPARKLE_SHA256=1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27
 packages:
