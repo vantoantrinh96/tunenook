@@ -73,9 +73,9 @@ Work on a branch, push it and open a pull request into `main`. PRs merge with a 
 
 ### Versioning
 
-PR titles follow [Conventional Commits](https://www.conventionalcommits.org), and a check fails the PR if the title doesn't match. When a PR is merged into `main` and CI passes, the [Release workflow](.github/workflows/release.yml) bumps the version in `project.yml` and tags the commit. It looks at every PR merged since the last release, including all PRs of a merged stack, and applies the biggest bump among their titles. For example, a stack with a `fix:` and a `feat:` gets a minor bump. Only a version bump builds the app. The Release build is zipped and published as a GitHub Release. The release includes a SHA-256 checksum and notes generated from the merged PRs.
+PR titles follow [Conventional Commits](https://www.conventionalcommits.org), and a check fails the PR if the title doesn't match. When a PR is merged into `main` and CI passes, the [Release workflow](.github/workflows/release.yml) bumps the version in `project.yml` and tags the commit. It looks at every PR merged since the last release, including all PRs of a merged stack, and applies the biggest bump among their titles. For example, a stack with a `fix:` and a `feat:` gets a minor bump. Only a version bump builds the app. The Release build is published as a GitHub Release in two forms: a `.dmg` (open it and drag TuneNook to Applications) and a `.zip`. The release also has a `.sha256` file with checksums for both, and notes generated from the merged PRs. Try the disk image locally with `scripts/make-dmg.sh build/Build/Products/Debug/TuneNook.app TuneNook.dmg`.
 
-The app is ad-hoc signed and not notarized. The first time you open a downloaded build, right-click the app and choose **Open**, or run `xattr -dr com.apple.quarantine TuneNook.app`.
+The app is ad-hoc signed and not notarized. The first time you open a downloaded build, right-click the app and choose **Open**, or run `xattr -dr com.apple.quarantine TuneNook.app`. This applies to the `.dmg` as well.
 
 | PR title | Bump | Example |
 |---|---|---|
@@ -104,7 +104,7 @@ TuneNook/
   Resources/      stations.json, Assets.xcassets (app icon)
 TuneNookTests/    Timer, streak, reward and music rule tests (Swift Testing)
 design/           App icon source (SVG)
-scripts/          Release versioning, app icon rendering
+scripts/          Release versioning, disk image packaging, app icon rendering
 ```
 
 Streaks and the heatmap are derived from `FocusSession` rows, so there is a single source of truth. Goal changes are stored as a history, so raising the goal today never rewrites past days.

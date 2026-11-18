@@ -1,7 +1,7 @@
 name: Release
 
 # After CI passes on main, bump the version from the merged PR's title and tag it.
-# Only a bump builds the app: the Release build is zipped and published as a GitHub Release.
+# Only a bump builds the app: the Release build is packed as a .dmg and a .zip and published as a GitHub Release.
 on:
   workflow_run:
     workflows: [CI]
@@ -109,15 +109,15 @@ jobs:
 
       - name: Package
         run: |
-          cd build/Build/Products/Release
-          ditto -c -k --keepParent TuneNook.app "$GITHUB_WORKSPACE/TuneNook-$VERSION.zip"
-          cd "$GITHUB_WORKSPACE"
-          shasum -a 256 "TuneNook-$VERSION.zip" > "TuneNook-$VERSION.zip.sha256"
-          cat "TuneNook-$VERSION.zip.sha256"
+          app=build/Build/Products/Release/TuneNook.app
+          scripts/make-dmg.sh "$app" "TuneNook-$VERSION.dmg"
+          ditto -c -k --keepParent "$app" "TuneNook-$VERSION.zip"
+          shasum -a 256 "TuneNook-$VERSION.dmg" "TuneNook-$VERSION.zip" > "TuneNook-$VERSION.sha256"
+          cat "TuneNook-$VERSION.sha256"
 
       - name: Publish GitHub Release
         run: |
           gh release create "v$VERSION" --repo "$REPO" --verify-tag \
             --title "TuneNook $VERSION" --generate-notes \
-            "TuneNook-$VERSION.zip" "TuneNook-$VERSION.zip.sha256"
-          echo "Published **TuneNook $VERSION** with TuneNook-$VERSION.zip." >> "$GITHUB_STEP_SUMMARY"
+            "TuneNook-$VERSION.dmg" "TuneNook-$VERSION.zip" "TuneNook-$VERSION.sha256"
+          echo "Published **TuneNook $VERSION** with TuneNook-$VERSION.dmg and TuneNook-$VERSION.zip." >> "$GITHUB_STEP_SUMMARY"
