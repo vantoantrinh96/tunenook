@@ -25,6 +25,7 @@
 - **Auto-pause when away**: focus pauses when the Mac locks or sleeps, and optionally after 2–15 idle minutes. Idle time isn't counted, and a notification with **Resume Focus** greets you when you're back.
 - **Media keys & Now Playing**: ⏯ on the keyboard or AirPods plays and pauses the radio, ⏭/⏮ change station, and the station shows in Control Center.
 - **Sleep-proof**: remaining time comes from an end date, so the timer catches up correctly after sleep.
+- **Weekly focus & estimate accuracy** (v0.6): on the Progress page, a bar chart of focus hours for the last 12 weeks (hover a bar for that week) and how your estimates hold up: actual sessions per estimated session, how many tasks finished under, on or over estimate, a breakdown per topic and the biggest misses. Choose the last 30 days, 90 days or all time. Only finished tasks with at least one focus session count.
 
 ## Roadmap
 
@@ -33,7 +34,8 @@
 | **MVP** ✅ | Menu bar timer, topic/task CRUD, estimate vs actual, notifications, radio |
 | **v0.2** ✅ | Daily targets, streaks with freezes, GitHub-style heatmap, deadline pacing |
 | **v0.3** ✅ | Celebration animations, unlockable menu bar icons, smart music rules (pause or switch on breaks) |
-| Later | Stats & estimate accuracy, macOS Focus Filters, iCloud sync, remote station list |
+| **v0.6** ✅ | Weekly focus chart, estimate accuracy, `.dmg` downloads |
+| Later | macOS Focus Filters, iCloud sync |
 
 ## Development
 
@@ -73,9 +75,9 @@ Work on a branch, push it and open a pull request into `main`. PRs merge with a 
 
 ### Versioning
 
-PR titles follow [Conventional Commits](https://www.conventionalcommits.org), and a check fails the PR if the title doesn't match. When a PR is merged into `main` and CI passes, the [Release workflow](.github/workflows/release.yml) bumps the version in `project.yml` and tags the commit. It looks at every PR merged since the last release, including all PRs of a merged stack, and applies the biggest bump among their titles. For example, a stack with a `fix:` and a `feat:` gets a minor bump. Only a version bump builds the app. The Release build is zipped and published as a GitHub Release. The release includes a SHA-256 checksum and notes generated from the merged PRs.
+PR titles follow [Conventional Commits](https://www.conventionalcommits.org), and a check fails the PR if the title doesn't match. When a PR is merged into `main` and CI passes, the [Release workflow](.github/workflows/release.yml) bumps the version in `project.yml` and tags the commit. It looks at every PR merged since the last release, including all PRs of a merged stack, and applies the biggest bump among their titles. For example, a stack with a `fix:` and a `feat:` gets a minor bump. Only a version bump builds the app. The Release build is published as a GitHub Release in two forms: a `.dmg` (open it and drag TuneNook to Applications) and a `.zip`. The release also has a `.sha256` file with checksums for both, and notes generated from the merged PRs. Try the disk image locally with `scripts/make-dmg.sh build/Build/Products/Debug/TuneNook.app TuneNook.dmg`.
 
-The app is ad-hoc signed and not notarized. The first time you open a downloaded build, right-click the app and choose **Open**, or run `xattr -dr com.apple.quarantine TuneNook.app`.
+The app is ad-hoc signed and not notarized. The first time you open a downloaded build, right-click the app and choose **Open**, or run `xattr -dr com.apple.quarantine TuneNook.app`. This applies to the `.dmg` as well.
 
 | PR title | Bump | Example |
 |---|---|---|
@@ -95,16 +97,16 @@ TuneNook/
   App/            App entry, scenes, SessionCoordinator (timer events → data, rewards, music)
   Models/         SwiftData models: Topic, TodoTask, FocusSession
   Timer/          TimerEngine (state machine) and TimerSettings
-  Progress/       Daily goals, focus-day calendar, streak & heatmap stats
+  Progress/       Daily goals, focus-day calendar, streak & heatmap stats, weekly totals & estimate accuracy
   Rewards/        Icon unlocks, celebration rules and the overlay
   Audio/          RadioPlayer (AVPlayer), stations and music rules
   System/         Launch at login, global shortcut, away detection
   Notifications/  Phase-end, goal and away notifications
   Views/          Menu bar popover, main window, progress page, settings
   Resources/      stations.json, Assets.xcassets (app icon)
-TuneNookTests/    Timer, streak, reward and music rule tests (Swift Testing)
+TuneNookTests/    Timer, streak, estimate, reward and music rule tests (Swift Testing)
 design/           App icon source (SVG)
-scripts/          Release versioning, app icon rendering
+scripts/          Release versioning, disk image packaging, app icon rendering
 ```
 
 Streaks and the heatmap are derived from `FocusSession` rows, so there is a single source of truth. Goal changes are stored as a history, so raising the goal today never rewrites past days.
