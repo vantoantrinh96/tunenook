@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 import Sparkle
@@ -122,8 +123,25 @@ final class UpdaterController: NSObject, SPUUpdaterDelegate, SPUStandardUserDriv
     ) -> Bool {
         guard UpdateGate.shouldPostponeRelaunch(isActive: engine.isActive) else { return false }
         postponedInstall = installHandler
-        notifications.notifyUpdateOnQuit(version: item.displayVersionString)
+        let version = item.displayVersionString
+        // Sparkle leaves its window on "Ready to Install", so close it and explain, after this callback returns.
+        Task { @MainActor [weak self] in
+            self?.showInstallOnQuitAlert(version: version)
+        }
         return true
+    }
+
+    private func showInstallOnQuitAlert(version: String) {
+        NSApp.windows
+            .first { $0.windowController.map { NSStringFromClass(type(of: $0)) } == "SUStatusController" }?
+            .close()
+        activateApp()
+        let alert = NSAlert()
+        alert.messageText = String(format: "TuneNook %@ will be installed when you quit TuneNook.", version)
+        alert.informativeText = "Your current session keeps running."
+        alert.addButton(withTitle: "OK")
+        alert.alertStyle = .informational
+        alert.runModal()
     }
 
     // MARK: - SPUStandardUserDriverDelegate

@@ -101,13 +101,6 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
         center.removePendingNotificationRequests(withIdentifiers: [Self.updateID])
     }
 
-    /// The update was accepted during a session, so it installs on quit instead of relaunching.
-    func notifyUpdateOnQuit(version: String) {
-        let content = UNMutableNotificationContent()
-        content.title = String(format: "TuneNook %@ will be installed when you quit TuneNook.", version)
-        center.add(UNNotificationRequest(identifier: "tunenook.update-on-quit", content: content, trigger: nil))
-    }
-
     func cancel() {
         center.removePendingNotificationRequests(withIdentifiers: [requestID])
     }
