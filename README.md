@@ -26,6 +26,7 @@
 - **Media keys & Now Playing**: ⏯ on the keyboard or AirPods plays and pauses the radio, ⏭/⏮ change station, and the station shows in Control Center.
 - **Sleep-proof**: remaining time comes from an end date, so the timer catches up correctly after sleep.
 - **Weekly focus & estimate accuracy** (v0.6): on the Progress page, a bar chart of focus hours for the last 12 weeks (hover a bar for that week) and how your estimates hold up: actual sessions per estimated session, how many tasks finished under, on or over estimate, a breakdown per topic and the biggest misses. Choose the last 30 days, 90 days or all time. Only finished tasks with at least one focus session count.
+- **In-app updates** (v0.7): TuneNook checks GitHub for a new version once a day and installs it in one click. Updates are signed and verified, never interrupt a focus session, and wait until you quit if a timer is running. Check by hand from the popover or Settings → General.
 
 ## Roadmap
 
@@ -35,6 +36,7 @@
 | **v0.2** ✅ | Daily targets, streaks with freezes, GitHub-style heatmap, deadline pacing |
 | **v0.3** ✅ | Celebration animations, unlockable menu bar icons, smart music rules (pause or switch on breaks) |
 | **v0.6** ✅ | Weekly focus chart, estimate accuracy, `.dmg` downloads |
+| **v0.7** ✅ | In-app updates (Sparkle) |
 | Later | macOS Focus Filters, iCloud sync |
 
 ## Development
@@ -76,6 +78,8 @@ Work on a branch, push it and open a pull request into `main`. A ruleset enforce
 ### Versioning
 
 PR titles follow [Conventional Commits](https://www.conventionalcommits.org), and a check fails the PR if the title doesn't match. When a PR is merged into `main` and CI passes, the [Release workflow](.github/workflows/release.yml) bumps the version in `project.yml` and tags the commit. `main` is protected, so it pushes that commit with a deploy key (secret `RELEASE_DEPLOY_KEY`), the only actor allowed to bypass the rules. It looks at every PR merged since the last release, including all PRs of a merged stack, and applies the biggest bump among their titles. For example, a stack with a `fix:` and a `feat:` gets a minor bump. Only a version bump builds the app. The Release build is published as a GitHub Release in two forms: a `.dmg` (open it and drag TuneNook to Applications) and a `.zip`. The release also has a `.sha256` file with checksums for both, and notes generated from the merged PRs. Try the disk image locally with `scripts/make-dmg.sh build/Build/Products/Debug/TuneNook.app TuneNook.dmg`.
+
+Each release also gets a signed `appcast.xml`, made by [`scripts/make-appcast.sh`](scripts/make-appcast.sh). The app reads it from `releases/latest/download/appcast.xml`. The `.zip` is signed with the EdDSA key in the repo secret `SPARKLE_ED_PRIVATE_KEY`. A backup of that key is in the owner's login keychain under the account `tunenook`. Losing the key means users have to reinstall by hand. Versions before 0.7 have no updater, so install the first release with updates by hand.
 
 The app is ad-hoc signed and not notarized. The first time you open a downloaded build, right-click the app and choose **Open**, or run `xattr -dr com.apple.quarantine TuneNook.app`. This applies to the `.dmg` as well.
 
