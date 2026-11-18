@@ -15,6 +15,7 @@ struct TuneNookApp: App {
     @State private var rewards: RewardStore
     @State private var launchAtLogin = LaunchAtLogin()
     @State private var hotKeys: HotKeyCenter
+    @State private var updater: UpdaterController
 
     init() {
         let container: ModelContainer
@@ -44,6 +45,7 @@ struct TuneNookApp: App {
         notifications.onResumeRequested = { [weak engine] in engine?.resume() }
         let nowPlaying = NowPlayingController(radio: radio)
         nowPlaying.start()
+        let updater = UpdaterController(engine: engine, notifications: notifications)
         let hotKeys = HotKeyCenter { [weak engine] in engine?.toggle() }
 
         notifications.requestAuthorization()
@@ -55,6 +57,7 @@ struct TuneNookApp: App {
         self.awayMonitor = awayMonitor
         self.nowPlaying = nowPlaying
         _hotKeys = State(initialValue: hotKeys)
+        _updater = State(initialValue: updater)
         _engine = State(initialValue: engine)
         _radio = State(initialValue: radio)
         _goalStore = State(initialValue: goalStore)
@@ -68,6 +71,7 @@ struct TuneNookApp: App {
                 .environment(radio)
                 .environment(goalStore)
                 .environment(rewards)
+                .environment(updater)
                 .modelContainer(container)
         } label: {
             MenuBarLabel(engine: engine, rewards: rewards)
@@ -91,6 +95,7 @@ struct TuneNookApp: App {
                 .environment(rewards)
                 .environment(launchAtLogin)
                 .environment(hotKeys)
+                .environment(updater)
                 .modelContainer(container)
         }
     }

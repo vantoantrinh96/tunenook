@@ -8,9 +8,13 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
     private let requestID = "tunenook.phase-end"
     private nonisolated static let awayCategory = "tunenook.away"
     private nonisolated static let resumeAction = "resume"
+    private nonisolated static let updateID = "tunenook.update"
 
     /// Called when the user taps "Resume Focus" on the away notification.
     var onResumeRequested: (() -> Void)?
+
+    /// Called when the user clicks the "update available" notification.
+    var onShowUpdateRequested: (() -> Void)?
 
     override init() {
         super.init()
@@ -25,8 +29,12 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
-        guard response.actionIdentifier == Self.resumeAction else { return }
-        await MainActor.run { self.onResumeRequested?() }
+        if response.actionIdentifier == Self.resumeAction {
+            await MainActor.run { self.onResumeRequested?() }
+        } else if response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+                  response.notification.request.identifier == Self.updateID {
+            await MainActor.run { self.onShowUpdateRequested?() }
+        }
     }
 
     /// A menu bar app often counts as frontmost, so ask for banners explicitly.
@@ -78,6 +86,20 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
         content.body = "\(remaining.clockString) left. Resume when you're ready."
         content.categoryIdentifier = Self.awayCategory
         center.add(UNNotificationRequest(identifier: "tunenook.away", content: content, trigger: nil))
+    }
+
+    /// A scheduled check found an update while the user was focusing.
+    func notifyUpdateAvailable(version: String) {
+        let content = UNMutableNotificationContent()
+        content.title = String(format: "TuneNook %@ is available", version)
+        center.add(UNNotificationRequest(identifier: Self.updateID, content: content, trigger: nil))
+    }
+
+    /// The update was accepted during a session, so it installs on quit instead of relaunching.
+    func notifyUpdateOnQuit(version: String) {
+        let content = UNMutableNotificationContent()
+        content.title = String(format: "TuneNook %@ will be installed when you quit TuneNook.", version)
+        center.add(UNNotificationRequest(identifier: "tunenook.update-on-quit", content: content, trigger: nil))
     }
 
     func cancel() {

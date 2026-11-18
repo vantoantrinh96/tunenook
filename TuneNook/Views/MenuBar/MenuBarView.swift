@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MenuBarView: View {
     @Environment(TimerEngine.self) private var engine
+    @Environment(UpdaterController.self) private var updater
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -26,6 +27,14 @@ struct MenuBarView: View {
                 activateApp()
             }
             Spacer()
+            Button {
+                activateApp()
+                updater.checkForUpdates()
+            } label: {
+                Image(systemName: "arrow.down.circle")
+            }
+            .disabled(!updater.canCheckForUpdates)
+            .help("Check for Updates…")
             SettingsLink {
                 Image(systemName: "gearshape")
             }
