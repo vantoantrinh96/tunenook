@@ -33,6 +33,9 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          # main is protected (PRs only). This deploy key is the ruleset's only bypass, so the
+          # bump commit and tag below can be pushed. GITHUB_TOKEN can't bypass on a personal repo.
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
       - name: Find PRs merged since the last release
         id: pr
@@ -79,7 +82,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
           version=$(scripts/release.sh bump "$LEVEL")
-          git commit -am "chore(release): v$version" -m "Includes $NUMBERS."
+          # [skip ci]: unlike GITHUB_TOKEN, a deploy-key push triggers workflows; the bump needs no CI run.
+          git commit -am "chore(release): v$version" -m "Includes $NUMBERS." -m "[skip ci]"
           git tag -a "v$version" -m "TuneNook $version"
           git push origin HEAD:main "v$version"
           echo "version=$version" >> "$GITHUB_OUTPUT"

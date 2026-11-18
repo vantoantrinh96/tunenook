@@ -66,7 +66,7 @@ The app icon comes from `design/app-icon.svg`. After editing it, run `swift scri
 git config core.hooksPath .githooks   # pre-push hook blocks direct pushes to main
 ```
 
-Work on a branch, push it and open a pull request into `main`. PRs merge with a merge commit (squash and rebase merges are off).
+Work on a branch, push it and open a pull request into `main`. A ruleset enforces this on GitHub too: no direct or force pushes to `main`, even for admins, and a PR merges only when Security scan, Test and Conventional title pass. PRs merge with a merge commit (squash and rebase merges are off).
 
 [CI](.github/workflows/ci.yml) runs on every pull request into `main` and again after the merge:
 
@@ -75,7 +75,7 @@ Work on a branch, push it and open a pull request into `main`. PRs merge with a 
 
 ### Versioning
 
-PR titles follow [Conventional Commits](https://www.conventionalcommits.org), and a check fails the PR if the title doesn't match. When a PR is merged into `main` and CI passes, the [Release workflow](.github/workflows/release.yml) bumps the version in `project.yml` and tags the commit. It looks at every PR merged since the last release, including all PRs of a merged stack, and applies the biggest bump among their titles. For example, a stack with a `fix:` and a `feat:` gets a minor bump. Only a version bump builds the app. The Release build is published as a GitHub Release in two forms: a `.dmg` (open it and drag TuneNook to Applications) and a `.zip`. The release also has a `.sha256` file with checksums for both, and notes generated from the merged PRs. Try the disk image locally with `scripts/make-dmg.sh build/Build/Products/Debug/TuneNook.app TuneNook.dmg`.
+PR titles follow [Conventional Commits](https://www.conventionalcommits.org), and a check fails the PR if the title doesn't match. When a PR is merged into `main` and CI passes, the [Release workflow](.github/workflows/release.yml) bumps the version in `project.yml` and tags the commit. `main` is protected, so it pushes that commit with a deploy key (secret `RELEASE_DEPLOY_KEY`), the only actor allowed to bypass the rules. It looks at every PR merged since the last release, including all PRs of a merged stack, and applies the biggest bump among their titles. For example, a stack with a `fix:` and a `feat:` gets a minor bump. Only a version bump builds the app. The Release build is published as a GitHub Release in two forms: a `.dmg` (open it and drag TuneNook to Applications) and a `.zip`. The release also has a `.sha256` file with checksums for both, and notes generated from the merged PRs. Try the disk image locally with `scripts/make-dmg.sh build/Build/Products/Debug/TuneNook.app TuneNook.dmg`.
 
 The app is ad-hoc signed and not notarized. The first time you open a downloaded build, right-click the app and choose **Open**, or run `xattr -dr com.apple.quarantine TuneNook.app`. This applies to the `.dmg` as well.
 
