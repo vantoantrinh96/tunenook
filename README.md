@@ -1,8 +1,12 @@
-# TuneNook ♪
+<p align="center">
+  <img src="design/app-icon.svg" alt="TuneNook icon: a flame with a music note cut out" width="128" height="128">
+</p>
 
-A cozy focus nook in your macOS menu bar: a task-driven focus timer with built-in radio.
+<h1 align="center">TuneNook</h1>
 
-*Tune in. Get it done.*
+<p align="center">A cozy focus nook in your macOS menu bar: a task-driven focus timer with built-in radio.</p>
+
+<p align="center"><em>Tune in. Get it done.</em></p>
 
 ## Features
 
