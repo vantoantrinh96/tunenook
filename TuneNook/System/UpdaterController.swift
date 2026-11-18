@@ -107,10 +107,10 @@ final class UpdaterController: NSObject, SPUUpdaterDelegate, SPUStandardUserDriv
             // Runs before the new value is stored, so read it on the next main-actor turn.
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                if gate.focusChanged(isFocusing: isFocusing) {
-                    checkForUpdates()
+                if self.gate.focusChanged(isFocusing: self.isFocusing) {
+                    self.checkForUpdates()
                 }
-                observeFocus()
+                self.observeFocus()
             }
         }
     }
