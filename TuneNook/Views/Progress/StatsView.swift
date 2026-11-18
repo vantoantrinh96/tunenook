@@ -5,10 +5,18 @@ struct StatsView: View {
     @Environment(GoalStore.self) private var goalStore
     @Query(filter: FocusSession.completedFocus) private var sessions: [FocusSession]
     @Query(sort: \Topic.createdAt) private var topics: [Topic]
+    @Query(filter: #Predicate<TodoTask> { $0.isDone }) private var doneTasks: [TodoTask]
 
     var body: some View {
+        let progress = FocusProgress(sessions: sessions, goalStore: goalStore)
+        let snapshots = sessions.map { SessionSnapshot(endedAt: $0.endedAt, duration: $0.focusedDuration) }
         ScrollView {
-            StatsContent(progress: FocusProgress(sessions: sessions, goalStore: goalStore), topics: topics)
+            StatsContent(
+                progress: progress,
+                topics: topics,
+                doneTasks: doneTasks,
+                weeks: EstimateStats.weekly(snapshots, weeks: 12, today: progress.today, calendar: progress.calendar)
+            )
         }
         .navigationTitle("Progress")
         .navigationSubtitle(goalSubtitle)
@@ -23,6 +31,8 @@ struct StatsView: View {
 struct StatsContent: View {
     let progress: FocusProgress
     let topics: [Topic]
+    let doneTasks: [TodoTask]
+    let weeks: [WeekTotal]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -36,7 +46,14 @@ struct StatsContent: View {
                     FocusHeatmap(progress: progress, weeks: 13)
                 }
             }
+            card("Focus by week") {
+                WeeklyFocusChart(weeks: weeks)
+            }
             deadlines(progress)
+            EstimateCard(tasks: doneTasks, today: progress.today, calendar: progress.calendar)
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
             card("Menu bar icons") {
                 IconCollectionView()
             }

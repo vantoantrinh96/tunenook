@@ -25,6 +25,7 @@
 - **Auto-pause when away**: focus pauses when the Mac locks or sleeps, and optionally after 2–15 idle minutes. Idle time isn't counted, and a notification with **Resume Focus** greets you when you're back.
 - **Media keys & Now Playing**: ⏯ on the keyboard or AirPods plays and pauses the radio, ⏭/⏮ change station, and the station shows in Control Center.
 - **Sleep-proof**: remaining time comes from an end date, so the timer catches up correctly after sleep.
+- **Weekly focus & estimate accuracy** (v0.6): on the Progress page, a bar chart of focus hours for the last 12 weeks (hover a bar for that week) and how your estimates hold up: actual sessions per estimated session, how many tasks finished under, on or over estimate, a breakdown per topic and the biggest misses. Choose the last 30 days, 90 days or all time. Only finished tasks with at least one focus session count.
 
 ## Roadmap
 
@@ -33,7 +34,8 @@
 | **MVP** ✅ | Menu bar timer, topic/task CRUD, estimate vs actual, notifications, radio |
 | **v0.2** ✅ | Daily targets, streaks with freezes, GitHub-style heatmap, deadline pacing |
 | **v0.3** ✅ | Celebration animations, unlockable menu bar icons, smart music rules (pause or switch on breaks) |
-| Later | Stats & estimate accuracy, macOS Focus Filters, iCloud sync, remote station list |
+| **v0.6** ✅ | Weekly focus chart, estimate accuracy, `.dmg` downloads |
+| Later | macOS Focus Filters, iCloud sync |
 
 ## Development
 
@@ -95,14 +97,14 @@ TuneNook/
   App/            App entry, scenes, SessionCoordinator (timer events → data, rewards, music)
   Models/         SwiftData models: Topic, TodoTask, FocusSession
   Timer/          TimerEngine (state machine) and TimerSettings
-  Progress/       Daily goals, focus-day calendar, streak & heatmap stats
+  Progress/       Daily goals, focus-day calendar, streak & heatmap stats, weekly totals & estimate accuracy
   Rewards/        Icon unlocks, celebration rules and the overlay
   Audio/          RadioPlayer (AVPlayer), stations and music rules
   System/         Launch at login, global shortcut, away detection
   Notifications/  Phase-end, goal and away notifications
   Views/          Menu bar popover, main window, progress page, settings
   Resources/      stations.json, Assets.xcassets (app icon)
-TuneNookTests/    Timer, streak, reward and music rule tests (Swift Testing)
+TuneNookTests/    Timer, streak, estimate, reward and music rule tests (Swift Testing)
 design/           App icon source (SVG)
 scripts/          Release versioning, disk image packaging, app icon rendering
 ```
