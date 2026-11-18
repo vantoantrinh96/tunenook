@@ -35,6 +35,7 @@ struct MenuBarView: View {
             }
             .disabled(!updater.canCheckForUpdates)
             .help("Check for Updates…")
+            .accessibilityLabel("Check for Updates…")
             SettingsLink {
                 Image(systemName: "gearshape")
             }

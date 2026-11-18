@@ -95,6 +95,12 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
         center.add(UNNotificationRequest(identifier: Self.updateID, content: content, trigger: nil))
     }
 
+    /// The update is being shown, so the "available" notification is stale.
+    func clearUpdateAvailable() {
+        center.removeDeliveredNotifications(withIdentifiers: [Self.updateID])
+        center.removePendingNotificationRequests(withIdentifiers: [Self.updateID])
+    }
+
     /// The update was accepted during a session, so it installs on quit instead of relaunching.
     func notifyUpdateOnQuit(version: String) {
         let content = UNMutableNotificationContent()

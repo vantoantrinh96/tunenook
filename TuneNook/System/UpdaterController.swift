@@ -13,7 +13,7 @@ final class UpdaterController: NSObject, SPUUpdaterDelegate, SPUStandardUserDriv
     @ObservationIgnored private let notifications: NotificationService
     @ObservationIgnored private var gate = UpdateGate()
     @ObservationIgnored private var controller: SPUStandardUpdaterController!
-    @ObservationIgnored private var canCheckObservation: NSKeyValueObservation?
+    @ObservationIgnored private var kvoObservations: [NSKeyValueObservation] = []
     /// Sparkle's install-and-relaunch block, kept while a session is active. Never invoked here:
     /// the update installs when the app quits.
     @ObservationIgnored private var postponedInstall: (() -> Void)?
@@ -27,12 +27,26 @@ final class UpdaterController: NSObject, SPUUpdaterDelegate, SPUStandardUserDriv
             updaterDelegate: self,
             userDriverDelegate: self
         )
-        canCheckObservation = controller.updater.observe(\.canCheckForUpdates, options: [.initial, .new]) {
-            [weak self] updater, _ in
-            MainActor.assumeIsolated {
-                self?.canCheckForUpdates = updater.canCheckForUpdates
-            }
-        }
+        let updater = controller.updater
+        kvoObservations = [
+            updater.observe(\.canCheckForUpdates, options: [.initial, .new]) { [weak self] updater, _ in
+                MainActor.assumeIsolated {
+                    self?.canCheckForUpdates = updater.canCheckForUpdates
+                }
+            },
+            // Sparkle can change these itself (e.g. the checkbox in its permission alert),
+            // so tell SwiftUI the pass-through values changed.
+            updater.observe(\.automaticallyChecksForUpdates) { [weak self] _, _ in
+                MainActor.assumeIsolated {
+                    self?.withMutation(keyPath: \.automaticallyChecksForUpdates) {}
+                }
+            },
+            updater.observe(\.automaticallyDownloadsUpdates) { [weak self] _, _ in
+                MainActor.assumeIsolated {
+                    self?.withMutation(keyPath: \.automaticallyDownloadsUpdates) {}
+                }
+            },
+        ]
         notifications.onShowUpdateRequested = { [weak self] in self?.checkForUpdates() }
         observeFocus()
     }
@@ -72,6 +86,7 @@ final class UpdaterController: NSObject, SPUUpdaterDelegate, SPUStandardUserDriv
     /// A user-initiated check. Also brings forward an update held during focus.
     func checkForUpdates() {
         gate.userRequestedUpdate()
+        notifications.clearUpdateAvailable()
         controller.updater.checkForUpdates()
     }
 
