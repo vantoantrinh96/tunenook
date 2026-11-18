@@ -59,5 +59,8 @@ jobs:
           brew install xcodegen
           xcodegen generate
 
+      - name: Test appcast script
+        run: scripts/test-make-appcast.sh
+
       - name: Test
         run: xcodebuild -scheme TuneNook -destination 'platform=macOS' -derivedDataPath build test

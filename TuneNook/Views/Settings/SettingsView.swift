@@ -20,10 +20,12 @@ struct SettingsView: View {
 
 private struct GeneralSettingsTab: View {
     @Environment(LaunchAtLogin.self) private var launchAtLogin
+    @Environment(UpdaterController.self) private var updater
     @AppStorage(AwayPolicy.Key.pauseOnLock) private var pauseOnLock = true
     @AppStorage(AwayPolicy.Key.idleMinutes) private var idleMinutes = 0
 
     var body: some View {
+        @Bindable var updater = updater
         Form {
             Section {
                 Toggle("Open TuneNook at login", isOn: Binding(
@@ -61,6 +63,24 @@ private struct GeneralSettingsTab: View {
                 Text("When you step away")
             } footer: {
                 Text("Applies to focus sessions. Idle time isn't counted: the timer goes back to when you stopped typing or moving the mouse. A notification lets you resume when you're back.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
+                Toggle("Check for updates automatically", isOn: $updater.automaticallyChecksForUpdates)
+                Toggle("Download and install updates automatically", isOn: $updater.automaticallyDownloadsUpdates)
+                    .disabled(!updater.automaticallyChecksForUpdates)
+                LabeledContent("Version") {
+                    HStack {
+                        Text(updater.versionDescription)
+                        Button("Check Now") { updater.checkForUpdates() }
+                            .disabled(!updater.canCheckForUpdates)
+                    }
+                }
+            } header: {
+                Text("Updates")
+            } footer: {
+                Text("Updates are verified before they're installed. If a timer is running, the update waits until you quit TuneNook.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

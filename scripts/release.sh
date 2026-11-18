@@ -5,6 +5,7 @@
 #   scripts/release.sh highest              reads PR titles (one per line) on stdin,
 #                                           prints the biggest bump among them
 #   scripts/release.sh current              prints the version in project.yml
+#   scripts/release.sh build                prints CURRENT_PROJECT_VERSION (the build number) in project.yml
 #   scripts/release.sh bump <level>         bumps project.yml, prints the new version
 set -euo pipefail
 
@@ -76,6 +77,7 @@ case "${1:-}" in
     level) level "${2:-}" ;;
     highest) highest ;;
     current) current ;;
+    build) build_number ;;
     bump) bump "${2:-}" ;;
-    *) sed -n '2,9p' "$0" >&2; exit 2 ;;
+    *) sed -n '2,10p' "$0" >&2; exit 2 ;;
 esac

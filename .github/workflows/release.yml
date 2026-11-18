@@ -99,6 +99,9 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
       VERSION: ${{ needs.version.outputs.version }}
+      # Must match the Sparkle version and tarball SHA-256 recorded in project.yml.
+      SPARKLE_VERSION: 2.10.1
+      SPARKLE_SHA256: 1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -119,9 +122,48 @@ jobs:
           shasum -a 256 "TuneNook-$VERSION.dmg" "TuneNook-$VERSION.zip" > "TuneNook-$VERSION.sha256"
           cat "TuneNook-$VERSION.sha256"
 
+      - name: Fetch Sparkle tools
+        # Runs before the release is created so a missing secret or bad download fails early,
+        # without leaving a release that has no appcast.
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          if [ -z "$SPARKLE_ED_PRIVATE_KEY" ]; then
+            echo "::error::SPARKLE_ED_PRIVATE_KEY is empty; cannot sign the update."
+            exit 1
+          fi
+
+          mkdir sparkle
+          curl -sSfL -o sparkle.tar.xz \
+            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+          echo "$SPARKLE_SHA256  sparkle.tar.xz" | shasum -a 256 -c -
+          tar -xf sparkle.tar.xz -C sparkle
+          test -x sparkle/bin/sign_update
+
       - name: Publish GitHub Release
         run: |
-          gh release create "v$VERSION" --repo "$REPO" --verify-tag \
-            --title "TuneNook $VERSION" --generate-notes \
-            "TuneNook-$VERSION.dmg" "TuneNook-$VERSION.zip" "TuneNook-$VERSION.sha256"
+          # Idempotent: a re-run after a later step failed must not fail at create.
+          gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1 || \
+            gh release create "v$VERSION" --repo "$REPO" --verify-tag \
+              --title "TuneNook $VERSION" --generate-notes \
+              "TuneNook-$VERSION.dmg" "TuneNook-$VERSION.zip" "TuneNook-$VERSION.sha256"
           echo "Published **TuneNook $VERSION** with TuneNook-$VERSION.dmg and TuneNook-$VERSION.zip." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish appcast
+        # The appcast embeds the release notes, so it is built after the release exists.
+        # The private key reaches sign_update only through env and stdin; no xtrace, no file.
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          # Sign the zip the release actually serves: on a re-run the local build differs from it.
+          gh release download "v$VERSION" --repo "$REPO" -p "TuneNook-$VERSION.zip" --clobber
+          signature=$(printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | sparkle/bin/sign_update --ed-key-file - "TuneNook-$VERSION.zip")
+          gh release view "v$VERSION" --repo "$REPO" --json body -q .body > notes.md
+          scripts/make-appcast.sh "$VERSION" "$(scripts/release.sh build)" \
+            "https://github.com/$REPO/releases/download/v$VERSION/TuneNook-$VERSION.zip" \
+            "https://github.com/$REPO/releases/tag/v$VERSION" \
+            "$signature" notes.md > appcast.xml
+          xmllint --noout appcast.xml
+
+          gh release upload "v$VERSION" --repo "$REPO" --clobber appcast.xml
+          echo "Published appcast.xml for **TuneNook $VERSION** (build $(scripts/release.sh build))." >> "$GITHUB_STEP_SUMMARY"
