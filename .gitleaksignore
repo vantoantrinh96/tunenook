@@ -1,0 +1,2 @@
+# SUPublicEDKey is Sparkle's public EdDSA key; it must ship in the app (not a secret).
+7b7c5a92cac9cc0495ae9bc1983b72729fc89e1b:project.yml:generic-api-key:38
