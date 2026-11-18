@@ -40,6 +40,16 @@ struct UpdateGateTests {
         #expect(!second)
     }
 
+    @Test func findOutsideFocusClearsEarlierHold() {
+        var gate = UpdateGate()
+        _ = gate.scheduledUpdateFound(isFocusing: true)
+        let shown = gate.scheduledUpdateFound(isFocusing: false)
+        #expect(shown)
+        #expect(!gate.isHoldingUpdate)
+        let again = gate.focusChanged(isFocusing: false)
+        #expect(!again)
+    }
+
     @Test func focusEndingByAbandonShowsHeldUpdate() {
         let engine = makeEngine()
         var gate = UpdateGate()
@@ -74,6 +84,7 @@ struct UpdateGateTests {
         clock.advance(minutes: 25)
         auto.tick()
         #expect(auto.phase == .shortBreak)
+        #expect(!UpdateGate.isFocusing(phase: auto.phase, isActive: auto.isActive))
         #expect(UpdateGate.shouldPostponeRelaunch(isActive: auto.isActive))
     }
 }

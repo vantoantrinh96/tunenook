@@ -15,6 +15,7 @@ struct UpdateGate: Sendable {
             isHoldingUpdate = true
             return false
         }
+        isHoldingUpdate = false
         return true
     }
 
