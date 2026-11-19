@@ -41,6 +41,7 @@ final class TuneNookTools {
     static let toolNames = [
         "list_topics", "create_topic", "update_topic", "delete_topic",
         "list_tasks", "create_task", "update_task", "delete_task",
+        "get_settings", "update_settings",
     ]
 
     /// Runs one tool. `arguments` is a JSON object (empty data means `{}`). Returns a JSON object.
@@ -59,6 +60,8 @@ final class TuneNookTools {
             case "create_task": return try encode(createTask(decode(args)))
             case "update_task": return try encode(updateTask(decode(args)))
             case "delete_task": return try encode(deleteTask(decode(args)))
+            case "get_settings": return try encode(getSettings())
+            case "update_settings": return try encode(updateSettings(decode(args)))
             default: throw ToolError("Unknown tool \(name).")
             }
         } catch let error as ToolError {
