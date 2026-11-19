@@ -32,7 +32,10 @@ struct TaskDTO: Encodable {
 
 struct TaskList: Encodable { let tasks: [TaskDTO] }
 
-struct ListTasksArgs: Decodable { var status: String? }
+struct ListTasksArgs: Decodable {
+    var status: String?
+    var topicId: String?
+}
 
 struct CreateTaskArgs: Decodable {
     var title: String?
@@ -80,7 +83,7 @@ extension TuneNookTools {
         guard ["open", "done", "all"].contains(status) else {
             throw ToolError("status must be open, done or all.")
         }
-        let all = try context.fetch(FetchDescriptor<TodoTask>())
+        let all = try args.topicId.map { try topic(id: $0).tasks } ?? context.fetch(FetchDescriptor<TodoTask>())
         // Same ordering as Topic.openTasks / doneTasks.
         let open = all.filter { !$0.isDone }.sorted { $0.createdAt < $1.createdAt }
         let done = all.filter(\.isDone).sorted { ($0.completedAt ?? $0.createdAt) > ($1.completedAt ?? $1.createdAt) }

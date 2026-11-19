@@ -99,10 +99,11 @@ final class TuneNookTools {
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
         let timeZone = calendar.timeZone
+        // Built once per encode; only used synchronously inside this call.
+        nonisolated(unsafe) let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        formatter.timeZone = timeZone
         encoder.dateEncodingStrategy = .custom { date, encoder in
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime]
-            formatter.timeZone = timeZone
             var container = encoder.singleValueContainer()
             try container.encode(formatter.string(from: date))
         }

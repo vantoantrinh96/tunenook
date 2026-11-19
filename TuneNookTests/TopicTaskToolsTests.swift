@@ -87,6 +87,19 @@ struct TopicTaskToolsTests {
         expectToolError { try call("create_topic", ##"{"name":"x","color":"#000000"}"##) }
         expectToolError { try call("create_topic", #"{"name":"x","deadline":"soon"}"#) }
         expectToolError { try call("create_topic", #"{"name":5}"#) }
+        expectToolError { try call("create_task", #"{"title":"x","topic_id":"y","estimated_sessions":"3"}"#) }
+        do {
+            try call("create_topic", #"{"name":5}"#)
+            Issue.record("expected ToolError")
+        } catch let error as ToolError {
+            #expect(error.message.contains("name"))
+        }
+        do {
+            try call("create_task", #"{"title":"x","topic_id":"y","estimated_sessions":"3"}"#)
+            Issue.record("expected ToolError")
+        } catch let error as ToolError {
+            #expect(error.message.contains("estimated_sessions"))
+        }
         #expect(try context.fetch(FetchDescriptor<Topic>()).isEmpty)
     }
 
@@ -150,6 +163,62 @@ struct TopicTaskToolsTests {
         #expect(try titles(#"{"status":"done"}"#) == ["done"])
         #expect(try titles(#"{"status":"all"}"#).sorted() == ["done", "open"])
         expectToolError { try call("list_tasks", #"{"status":"weird"}"#) }
+    }
+
+    @Test func listTasksFiltersByTopic() throws {
+        let a = try createTopic("A")
+        let b = try createTopic("B")
+        _ = try createTask(a, #"{"title":"a-open"}"#)
+        let aDone = try createTask(a, #"{"title":"a-done"}"#)
+        _ = try createTask(b, #"{"title":"b-open"}"#)
+        try call("update_task", #"{"id":"\#(aDone)","done":true}"#)
+        func titles(_ json: String) throws -> [String] {
+            try #require(try call("list_tasks", json)["tasks"] as? [[String: Any]]).compactMap { $0["title"] as? String }
+        }
+        #expect(try titles(#"{"topic_id":"\#(a)"}"#) == ["a-open"])
+        #expect(try titles(#"{"topic_id":"\#(a)","status":"all"}"#) == ["a-open", "a-done"])
+        #expect(try titles(#"{"topic_id":"\#(b)","status":"done"}"#) == [])
+        expectToolError("No topic with that id.") { try call("list_tasks", #"{"topic_id":"nope"}"#) }
+    }
+
+    @Test func listTasksOrderMatchesTopicOrdering() throws {
+        let topic = try createTopic()
+        for title in ["o1", "o2", "d1", "d2"] { _ = try createTask(topic, #"{"title":"\#(title)"}"#) }
+        let tasks = try context.fetch(FetchDescriptor<TodoTask>())
+        func task(_ title: String) -> TodoTask { tasks.first { $0.title == title }! }
+        let base = fixedNow
+        task("o2").createdAt = base.addingTimeInterval(10)
+        task("o1").createdAt = base.addingTimeInterval(20)  // o2 is older, so it sorts first
+        task("d1").createdAt = base
+        task("d2").createdAt = base
+        task("d1").setDone(true, at: base.addingTimeInterval(100))
+        task("d2").setDone(true, at: base.addingTimeInterval(200))
+        try context.save()
+        func titles(_ status: String) throws -> [String] {
+            try #require(try call("list_tasks", #"{"status":"\#(status)"}"#)["tasks"] as? [[String: Any]]).compactMap { $0["title"] as? String }
+        }
+        #expect(try titles("open") == ["o2", "o1"])
+        #expect(try titles("done") == ["d2", "d1"])
+        let model = try #require(try context.fetch(FetchDescriptor<Topic>()).first)
+        #expect(try titles("open") == model.openTasks.map(\.title))
+        #expect(try titles("done") == model.doneTasks.map(\.title))
+    }
+
+    @Test func unknownArgumentKeysAreIgnored() throws {
+        let created = try call("create_topic", #"{"name":"X","bogus":[1,2],"another":{"a":1}}"#)
+        #expect(created["name"] as? String == "X")
+    }
+
+    @Test func outputDatesCarryTimeZone() throws {
+        let created = try call("create_topic", ##"{"name":"X","deadline":"2026-12-01"}"##)
+        let deadline = try #require(created["deadline"] as? String)
+        #expect(deadline == "2026-12-01T00:00:00+07:00")
+        let topic = try #require(created["id"] as? String)
+        let task = try createTask(topic)
+        let done = try call("update_task", #"{"id":"\#(task)","done":true}"#)
+        let completed = try #require(done["completed_at"] as? String)
+        #expect(completed.hasSuffix("+07:00") || completed.hasSuffix("Z"))
+        #expect((done["created_at"] as? String)?.hasSuffix("+07:00") == true)
     }
 
     @Test func deleteTaskKeepsSessions() throws {
