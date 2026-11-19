@@ -126,10 +126,56 @@ struct DeviceSnapshot: Codable, Equatable, Sendable {
                        settings: [:], goals: [], unlockedIcons: [])
     }
 
-    private static func makeFormatter() -> ISO8601DateFormatter {
+    /// One formatter for every date: building one per date made large snapshots
+    /// take seconds. `ISO8601DateFormatter` is thread-safe, and this one is never
+    /// changed after it is made.
+    nonisolated(unsafe) static let formatter: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f
+    }()
+
+    /// Parses a wire date. The usual `yyyy-MM-ddTHH:mm:ss.SSSZ` shape is read by
+    /// hand (the formatter takes ~100 µs a date); anything else goes to the formatter.
+    static func parseDate(_ string: String) -> Date? {
+        fastParse(string) ?? formatter.date(from: string)
+    }
+
+    /// The same instant the formatter yields for a millisecond date, or nil when
+    /// the string is not exactly that shape. Years before 1600 go to the
+    /// formatter, which may switch to the Julian calendar there.
+    static func fastParse(_ string: String) -> Date? {
+        var string = string
+        return string.withUTF8 { b -> Date? in
+            guard b.count == 24, b[4] == 0x2D, b[7] == 0x2D, b[10] == 0x54, b[13] == 0x3A, b[16] == 0x3A,
+                  b[19] == 0x2E, b[23] == 0x5A else { return nil }
+            func number(_ start: Int, _ length: Int) -> Int? {
+                var value = 0
+                for i in start..<(start + length) {
+                    let digit = Int(b[i]) - 0x30
+                    guard (0...9).contains(digit) else { return nil }
+                    value = value * 10 + digit
+                }
+                return value
+            }
+            guard let year = number(0, 4), let month = number(5, 2), let day = number(8, 2),
+                  let hour = number(11, 2), let minute = number(14, 2), let second = number(17, 2),
+                  let millis = number(20, 3),
+                  year >= 1600, (1...12).contains(month), hour < 24, minute < 60, second < 60
+            else { return nil }
+            let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+            let monthDays = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+            guard (1...monthDays[month - 1]).contains(day) else { return nil }
+            // Days since 1970-01-01 in the proleptic Gregorian calendar.
+            let y = month <= 2 ? year - 1 : year
+            let era = (y >= 0 ? y : y - 399) / 400
+            let yearOfEra = y - era * 400
+            let dayOfYear = (153 * (month + (month > 2 ? -3 : 9)) + 2) / 5 + day - 1
+            let dayOfEra = yearOfEra * 365 + yearOfEra / 4 - yearOfEra / 100 + dayOfYear
+            let days = era * 146_097 + dayOfEra - 719_468
+            let seconds = ((days * 24 + hour) * 60 + minute) * 60 + second
+            return Date(timeIntervalSince1970: Double(seconds * 1000 + millis) / 1000)
+        }
     }
 
     func encoded() throws -> Data {
@@ -143,7 +189,7 @@ struct DeviceSnapshot: Codable, Equatable, Sendable {
         encoder.outputFormatting = [.sortedKeys]
         encoder.dateEncodingStrategy = .custom { date, enc in
             var c = enc.singleValueContainer()
-            try c.encode(DeviceSnapshot.makeFormatter().string(from: date))
+            try c.encode(DeviceSnapshot.formatter.string(from: date))
         }
         return try encoder.encode(copy)
     }
@@ -153,7 +199,7 @@ struct DeviceSnapshot: Codable, Equatable, Sendable {
         decoder.dateDecodingStrategy = .custom { dec in
             let c = try dec.singleValueContainer()
             let s = try c.decode(String.self)
-            guard let d = makeFormatter().date(from: s) else {
+            guard let d = parseDate(s) else {
                 throw DecodingError.dataCorruptedError(in: c, debugDescription: "Bad date \(s)")
             }
             return d

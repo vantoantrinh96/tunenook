@@ -87,4 +87,51 @@ import Testing
         t.name = "other"
         #expect(!t.sameContent(as: s.topics[0]))
     }
+
+    @Test func largeSnapshotEncodesAndDecodesQuickly() throws {
+        var s = sample()
+        let taskID = s.tasks[0].id
+        s.sessions = (0..<5_000).map { i in
+            let start = Date(timeIntervalSince1970: 1_700_000_000 + Double(i) * 1_800.123).syncMillis
+            return SyncSession(id: UUID(), meta: meta(1_700_000_000 + Double(i)), kind: "focus", startedAt: start,
+                               endedAt: start.addingTimeInterval(1_500).syncMillis, activeSeconds: 1_500, completed: true,
+                               taskID: taskID)
+        }.sorted { $0.id.uuidString < $1.id.uuidString }
+        let clock = ContinuousClock()
+        var data = Data()
+        let encode = try clock.measure { data = try s.encoded() }
+        var back: DeviceSnapshot?
+        let decode = try clock.measure { back = try DeviceSnapshot.decode(data) }
+        print("SyncSnapshot benchmark, 5,000 sessions: encode \(encode), decode \(decode)")
+        #expect(back == s)
+        #expect(encode < .milliseconds(500))
+        #expect(decode < .milliseconds(500))
+    }
+
+    @Test func datesKeepMillisecondWireFormat() throws {
+        var s = DeviceSnapshot.empty(deviceID: "d", deviceName: "Mac")
+        s.exportedAt = Date(timeIntervalSince1970: 1_700_000_000.123)
+        let json = String(decoding: try s.encoded(), as: UTF8.self)
+        #expect(json.contains(#""exportedAt":"2023-11-14T22:13:20.123Z""#))
+        #expect(try DeviceSnapshot.decode(Data(json.utf8)).exportedAt == s.exportedAt)
+    }
+
+    @Test func fastDateParseMatchesFormatter() {
+        var generator = SystemRandomNumberGenerator()
+        var dates: [Date] = [.distantPast, .distantFuture, Date(timeIntervalSince1970: 0),
+                             Date(timeIntervalSince1970: 951_782_400.999), // 2000-02-29
+                             Date(timeIntervalSince1970: -1.5)]
+        for _ in 0..<20_000 {
+            let ms = Int64.random(in: -5_000_000_000_000...10_000_000_000_000, using: &generator)
+            dates.append(Date(timeIntervalSince1970: Double(ms) / 1000))
+        }
+        for date in dates {
+            let string = DeviceSnapshot.formatter.string(from: date)
+            let expected = DeviceSnapshot.formatter.date(from: string)
+            #expect(DeviceSnapshot.parseDate(string) == expected, "\(string)")
+            if let fast = DeviceSnapshot.fastParse(string) { #expect(fast == expected, "\(string)") }
+        }
+        #expect(DeviceSnapshot.fastParse("2023-02-30T00:00:00.000Z") == nil)
+        #expect(DeviceSnapshot.fastParse("2023-11-14T22:13:20Z") == nil)
+    }
 }
