@@ -19,6 +19,8 @@ final class TuneNookTools {
     let deselect: (TodoTask) -> Void
     let now: () -> Date
     let calendar: Calendar
+    /// How a write is saved; tests swap it to make saving fail.
+    var saveContext: (ModelContext) throws -> Void = { try $0.save() }
 
     init(context: ModelContext,
          defaults: UserDefaults,
@@ -141,8 +143,14 @@ final class TuneNookTools {
 
     // MARK: Store
 
+    /// Saves the tool's writes, or on failure discards them: they must not ride along with the next UI save.
     func save() throws {
-        do { try context.save() } catch { throw ToolError("Could not save: \(error.localizedDescription)") }
+        do {
+            try saveContext(context)
+        } catch {
+            context.rollback()
+            throw ToolError("Could not save: \(error.localizedDescription)")
+        }
     }
 
     func topic(id string: String) throws -> Topic {

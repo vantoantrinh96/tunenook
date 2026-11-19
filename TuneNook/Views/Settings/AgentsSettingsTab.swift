@@ -13,6 +13,18 @@ import SwiftUI
     }
 }
 
+/// Puts text that carries the token on a pasteboard.
+@MainActor enum SecretPasteboard {
+    /// The nspasteboard.org marker that tells clipboard managers not to record the entry.
+    static let concealedType = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
+
+    static func copy(_ text: String, to pasteboard: NSPasteboard = .general) {
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        pasteboard.setString("", forType: concealedType)
+    }
+}
+
 struct AgentsSettingsTab: View {
     @Environment(MCPServerController.self) private var controller
     @State private var portText = ""
@@ -48,6 +60,7 @@ struct AgentsSettingsTab: View {
                         HStack {
                             Text(String(repeating: "\u{2022}", count: 12))
                                 .foregroundStyle(.secondary)
+                                .accessibilityLabel("Token hidden")
                             CopyButton("Copy", text: controller.token)
                             Button("Regenerate") { confirmRegenerate = true }
                                 .disabled(isStarting)
@@ -112,7 +125,7 @@ struct AgentsSettingsTab: View {
     }
 }
 
-/// Copies `text` to the pasteboard and shows "Copied" for two seconds.
+/// Copies `text` (which carries the token) to the pasteboard and shows "Copied" for two seconds.
 private struct CopyButton: View {
     let title: String
     let text: String
@@ -130,8 +143,7 @@ private struct CopyButton: View {
                 Text("Copied").font(.footnote).foregroundStyle(.secondary)
             }
             Button(title) {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(text, forType: .string)
+                SecretPasteboard.copy(text)
                 copied = true
                 reset?.cancel()
                 reset = Task {

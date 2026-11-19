@@ -231,15 +231,17 @@ struct MCPServerControllerTests {
     @Test func changingPortWhileRunningMoves() async throws {
         let controller = makeController()
         let oldPort = try await enableOnFreePort(controller)
-        var newPort = randomPort()
-        while newPort == oldPort { newPort = randomPort() }
-        await controller.setPort(newPort)
+        // Retry if the random pick happens to be taken, so the HTTP checks always run.
+        var newPort = oldPort
+        for _ in 0..<20 {
+            newPort = randomPort()
+            guard newPort != oldPort else { continue }
+            await controller.setPort(newPort)
+            if controller.status == .running(port: newPort) { break }
+        }
+        #expect(controller.status == .running(port: newPort))
         #expect(controller.port == newPort)
         #expect(defaults.integer(forKey: MCPServerController.Key.port) == newPort)
-        guard controller.status == .running(port: newPort) else {
-            await controller.setEnabled(false)
-            return  // the random pick was taken; nothing more to check
-        }
         #expect(try await post(port: newPort, token: controller.token, body: initializeBody()).0 == 200)
         await #expect(throws: (any Error).self) {
             _ = try await post(port: oldPort, token: controller.token, body: initializeBody())
@@ -261,17 +263,23 @@ struct MCPServerControllerTests {
     /// The gate would accept `Bearer ` if the token were empty, so an enabled server with no stored token
     /// gets a fresh one before it serves.
     @Test func neverServesWithAnEmptyToken() async throws {
-        let port = randomPort()
-        defaults.set(true, forKey: MCPServerController.Key.enabled)
-        defaults.set(port, forKey: MCPServerController.Key.port)
-        defaults.set("", forKey: MCPServerController.Key.token)
-        let controller = makeController()
-        #expect(controller.token.isEmpty)
-        await controller.startIfEnabled()
-        #expect(controller.token.count == 43)
-        if controller.status == .running(port: port) {
-            #expect(try await post(port: port, token: "", body: initializeBody()).0 == 401)
+        // Retry if the random pick happens to be taken, so the HTTP check always runs.
+        var port = 0
+        var controller = makeController()
+        for _ in 0..<20 {
+            port = randomPort()
+            defaults.set(true, forKey: MCPServerController.Key.enabled)
+            defaults.set(port, forKey: MCPServerController.Key.port)
+            defaults.set("", forKey: MCPServerController.Key.token)
+            controller = makeController()
+            #expect(controller.token.isEmpty)
+            await controller.startIfEnabled()
+            #expect(controller.token.count == 43)
+            if controller.status == .running(port: port) { break }
+            await controller.setEnabled(false)
         }
+        try #require(controller.status == .running(port: port))
+        #expect(try await post(port: port, token: "", body: initializeBody()).0 == 401)
         await controller.setEnabled(false)
     }
 
