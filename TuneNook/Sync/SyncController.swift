@@ -236,6 +236,7 @@ final class SyncController {
                 published.exportedAt = baseline.exportedAt
             }
             try saveBaseline(published)
+            clearSettledMerges(in: published, now: passNow)
 
             let file = published
             let data = try file.encoded()
@@ -246,6 +247,19 @@ final class SyncController {
         } catch {
             status = .failed(error.localizedDescription)
         }
+    }
+
+    /// Forgets merges whose source tombstone is older than 90 days, or pruned from the baseline.
+    private func clearSettledMerges(in baseline: DeviceSnapshot, now: Date) {
+        let pending = TopicMerger.pending(in: defaults)
+        guard !pending.isEmpty else { return }
+        let cutoff = now.addingTimeInterval(-90 * 86_400)
+        let topics = Dictionary(baseline.topics.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let settled = pending.keys.filter { id in
+            guard let topic = topics[id] else { return true }
+            return topic.meta.deleted && topic.meta.modifiedAt < cutoff
+        }
+        TopicMerger.clear(Array(settled), in: defaults)
     }
 
     /// Settings the applier left alone (the station while the radio plays, an icon
@@ -279,7 +293,7 @@ final class SyncController {
 
     private var capturer: SnapshotCapture {
         SnapshotCapture(context: context, defaults: defaults, goalStore: goalStore, rewards: rewards,
-                        identity: identity, mergedTopics: [:])
+                        identity: identity, mergedTopics: TopicMerger.pending(in: defaults))
     }
 
     private var applier: SnapshotApplier {

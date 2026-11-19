@@ -149,6 +149,40 @@ final class SyncControllerTests {
         #expect(try Data(contentsOf: macA.baselineURL) == baseline)
     }
 
+    @Test func syncedMergeRedirectsLateTask() async throws {
+        try macA.addTopic("X", sessions: 0, at: clock.now.addingTimeInterval(-86_400))
+        try macA.addTopic("Y", sessions: 0, at: clock.now.addingTimeInterval(-80_000))
+        await macA.controller.enable(folder: folder)
+        clock.advance()
+        await macB.controller.enable(folder: folder)
+        clock.advance()
+        #expect(try macB.topicNames() == ["X", "Y"])
+
+        let x = try macA.context.fetch(FetchDescriptor<Topic>()).first { $0.name == "X" }!
+        let y = try macA.context.fetch(FetchDescriptor<Topic>()).first { $0.name == "Y" }!
+        try TopicMerger.merge(x, into: y, context: macA.context, defaults: macA.defaults)
+        await macA.controller.syncNow()
+        clock.advance()
+
+        // B has not synced since; it adds a task to X.
+        let bx = try macB.context.fetch(FetchDescriptor<Topic>()).first { $0.name == "X" }!
+        macB.context.insert(TodoTask(title: "Late", topic: bx, createdAt: clock.now))
+        try macB.context.save()
+        await macB.controller.syncNow()
+        clock.advance()
+        await macA.controller.syncNow()
+        clock.advance()
+        await macB.controller.syncNow()
+
+        for mac in [macA, macB] {
+            #expect(try mac.topicNames() == ["Y"])
+            let tasks = try mac.context.fetch(FetchDescriptor<TodoTask>())
+            let late = tasks.first { $0.title == "Late" }
+            #expect(late?.topic?.name == "Y")
+            #expect(tasks.count == 3)
+        }
+    }
+
     @Test func editPropagates() async throws {
         try await converge()
         let work = try macA.context.fetch(FetchDescriptor<Topic>()).first { $0.name == "Work" }

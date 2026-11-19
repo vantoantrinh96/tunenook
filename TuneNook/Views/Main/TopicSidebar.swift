@@ -10,6 +10,7 @@ struct TopicSidebar: View {
 
     @State private var editing: TopicDraft?
     @State private var pendingDelete: Topic?
+    @State private var merging: Topic?
 
     var body: some View {
         List(selection: $selection) {
@@ -25,6 +26,9 @@ struct TopicSidebar: View {
                         .tag(SidebarItem.topic(topic))
                         .contextMenu {
                             Button("Edit…") { editing = TopicDraft(topic: topic) }
+                            if topics.count > 1 {
+                                Button("Merge into…") { merging = topic }
+                            }
                             Button("Delete…", role: .destructive) { pendingDelete = topic }
                         }
                 }
@@ -42,6 +46,11 @@ struct TopicSidebar: View {
         }
         .sheet(item: $editing) { draft in
             TopicEditor(draft: draft) { saved in selection = .topic(saved) }
+        }
+        .sheet(item: $merging) { source in
+            MergeTopicSheet(source: source) { target in
+                if selection == .topic(source) { selection = .topic(target) }
+            }
         }
         .confirmationDialog(
             "Delete “\(pendingDelete?.name ?? "")” and all its tasks?",
