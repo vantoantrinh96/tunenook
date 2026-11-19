@@ -207,6 +207,34 @@ final class SyncControllerTests {
         #expect(FileManager.default.fileExists(atPath: deviceFile(macB).path))
     }
 
+    @Test func recordsMadeWhileChoosingSurvive() async throws {
+        macA.defaults.set(50, forKey: "timer.focusMinutes")
+        macB.defaults.set(25, forKey: "timer.focusMinutes")
+        try macA.addTopic("Work", sessions: 1, at: clock.now.addingTimeInterval(-3_600))
+        await macA.controller.enable(folder: folder)
+        clock.advance()
+        await macB.controller.enable(folder: folder)
+        guard case .awaitingChoice = macB.controller.status else {
+            Issue.record("Expected awaitingChoice, got \(macB.controller.status)")
+            return
+        }
+
+        clock.advance()
+        try macB.addTopic("New", sessions: 1, at: clock.now)
+        clock.advance()
+        await macB.controller.resolveFirstSync(useThisMac: false)
+        #expect(isSynced(macB))
+        #expect(try macB.topicNames() == ["New", "Work"])
+        #expect(try macB.sessionCount() == 2)
+        #expect(macB.defaults.integer(forKey: "timer.focusMinutes") == 50)
+
+        clock.advance()
+        await macA.controller.syncNow()
+        #expect(try macA.topicNames() == ["New", "Work"])
+        #expect(try macA.sessionCount() == 2)
+        #expect(macA.defaults.integer(forKey: "timer.focusMinutes") == 50)
+    }
+
     @Test func cancelFirstSyncWritesNothing() async throws {
         macA.defaults.set(50, forKey: "timer.focusMinutes")
         await macA.controller.enable(folder: folder)

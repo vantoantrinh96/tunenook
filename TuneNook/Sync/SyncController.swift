@@ -44,8 +44,10 @@ final class SyncController {
     @ObservationIgnored private var isApplying = false
     @ObservationIgnored private var passTask: Task<Void, Never>?
     @ObservationIgnored private var rerunRequested = false
-    /// The first-sync snapshot kept while the user chooses whose settings to keep.
-    @ObservationIgnored private var pendingFirstSync: (local: DeviceSnapshot, remote: DeviceSnapshot)?
+    /// Set while the user chooses whose settings to keep. Nothing is kept from
+    /// that pass: the choice is applied to a fresh capture, so records made
+    /// while the dialog is open survive.
+    @ObservationIgnored private var awaitingFirstSyncChoice = false
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var debounceTask: Task<Void, Never>?
@@ -120,21 +122,20 @@ final class SyncController {
             return
         }
         setFolder(folder)
-        pendingFirstSync = nil
+        awaitingFirstSyncChoice = false
         defaults.set(true, forKey: Self.enabledKey)
         startScheduling()
         await syncNow()
     }
 
     func resolveFirstSync(useThisMac: Bool) async {
-        guard let pending = pendingFirstSync else { return }
-        let chosen = FirstSync.choose(useThisMac: useThisMac, local: pending.local, remote: pending.remote, now: now())
-        pendingFirstSync = nil
-        await runPass(chosenLocal: chosen)
+        guard awaitingFirstSyncChoice else { return }
+        awaitingFirstSyncChoice = false
+        await runPass(firstSyncChoice: useThisMac)
     }
 
     func cancelFirstSync() {
-        pendingFirstSync = nil
+        awaitingFirstSyncChoice = false
         SyncBookmark.clear(in: defaults)
         defaults.set(false, forKey: Self.enabledKey)
         stopScheduling()
@@ -144,7 +145,7 @@ final class SyncController {
     }
 
     func disable() {
-        pendingFirstSync = nil
+        awaitingFirstSyncChoice = false
         defaults.set(false, forKey: Self.enabledKey)
         stopScheduling()
         status = .off
@@ -158,7 +159,7 @@ final class SyncController {
 
     // MARK: - Passes
 
-    private var canRun: Bool { isEnabled && pendingFirstSync == nil }
+    private var canRun: Bool { isEnabled && !awaitingFirstSyncChoice }
 
     /// Runs a pass now; one requested while another runs makes that one go again.
     func syncNow() async {
@@ -168,18 +169,18 @@ final class SyncController {
             await running.value
             return
         }
-        await runPass(chosenLocal: nil)
+        await runPass(firstSyncChoice: nil)
     }
 
-    private func runPass(chosenLocal: DeviceSnapshot?) async {
+    private func runPass(firstSyncChoice: Bool?) async {
         while let running = passTask { await running.value }
         let task = Task { [weak self] in
             guard let self else { return }
-            var chosen = chosenLocal
+            var choice = firstSyncChoice
             repeat {
                 rerunRequested = false
-                await pass(chosenLocal: chosen)
-                chosen = nil
+                await pass(firstSyncChoice: choice)
+                choice = nil
             } while rerunRequested && canRun
             passTask = nil
         }
@@ -187,7 +188,8 @@ final class SyncController {
         await task.value
     }
 
-    private func pass(chosenLocal: DeviceSnapshot?) async {
+    /// `firstSyncChoice`: whose differing settings and goals to keep (true: this Mac's).
+    private func pass(firstSyncChoice: Bool?) async {
         guard isEnabled else { return }
         status = .syncing
         do {
@@ -202,16 +204,16 @@ final class SyncController {
             // From here to the saved baseline nothing suspends, so no edit slips in between.
             let passNow = now()
             let baseline = loadBaseline()
-            let local: DeviceSnapshot
-            if let chosenLocal {
-                local = chosenLocal
-            } else {
-                local = try capturer.capture(baseline: baseline, now: passNow)
-                if baseline == nil, !read.snapshots.isEmpty {
-                    let remote = SyncMerge.merge(read.snapshots, into: identity, now: passNow)
+            var local = try capturer.capture(baseline: baseline, now: passNow)
+            if baseline == nil, !read.snapshots.isEmpty {
+                let remote = SyncMerge.merge(read.snapshots, into: identity, now: passNow)
+                if let firstSyncChoice {
+                    // Applied to what differs now, which may not be what the dialog showed.
+                    local = FirstSync.choose(useThisMac: firstSyncChoice, local: local, remote: remote, now: passNow)
+                } else {
                     let diffs = FirstSync.differences(local: local, remote: remote)
                     if !diffs.isEmpty {
-                        pendingFirstSync = (local, remote)
+                        awaitingFirstSyncChoice = true
                         status = .awaitingChoice(diffs)
                         return
                     }
