@@ -146,17 +146,23 @@ final class TuneNookTools {
     }
 
     func topic(id string: String) throws -> Topic {
-        guard let id = EntityID.decode(string),
-              let topic = try context.fetch(FetchDescriptor<Topic>(predicate: #Predicate { $0.persistentModelID == id })).first
-        else { throw ToolError("No topic with that id.") }
+        guard let topic = try row(Topic.self, id: string) else { throw ToolError("No topic with that id.") }
         return topic
     }
 
     func task(id string: String) throws -> TodoTask {
-        guard let id = EntityID.decode(string),
-              let task = try context.fetch(FetchDescriptor<TodoTask>(predicate: #Predicate { $0.persistentModelID == id })).first
-        else { throw ToolError("No task with that id.") }
+        guard let task = try row(TodoTask.self, id: string) else { throw ToolError("No task with that id.") }
         return task
+    }
+
+    /// The predicate matches the row's primary key only, and row numbers are dense in every table,
+    /// so an id of another entity (or another store) must be rejected before and after the fetch.
+    private func row<T: PersistentModel>(_ type: T.Type, id string: String) throws -> T? {
+        // A @Model's entity name is its class name (`Schema.entityName(for:)` needs macOS 15).
+        guard let id = EntityID.decode(string), id.entityName == String(describing: T.self) else { return nil }
+        let found = try context.fetch(FetchDescriptor<T>(predicate: #Predicate { $0.persistentModelID == id })).first
+        guard let found, found.persistentModelID == id else { return nil }
+        return found
     }
 
     func cleanName(_ value: String, field: String) throws -> String {

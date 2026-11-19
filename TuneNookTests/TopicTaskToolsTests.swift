@@ -283,6 +283,32 @@ struct TopicTaskToolsTests {
         #expect(try context.fetch(FetchDescriptor<Topic>()).count == 1)
     }
 
+    /// Row numbers are dense in both tables, so topic p1 and task p1 both exist here:
+    /// an id of the wrong kind must never resolve to the other table's row with the same number.
+    @Test func wrongKindIdsNeverHitCollidingRows() throws {
+        let topicA = try createTopic("A")
+        let topicB = try createTopic("B")
+        let task1 = try createTask(topicA, #"{"title":"One"}"#)
+        let task2 = try createTask(topicB, #"{"title":"Two"}"#)
+
+        expectToolError("No task with that id.") { try call("delete_task", #"{"id":"\#(topicA)"}"#) }
+        expectToolError("No task with that id.") { try call("update_task", #"{"id":"\#(topicA)","title":"x"}"#) }
+        expectToolError("No topic with that id.") { try call("delete_topic", #"{"id":"\#(task2)"}"#) }
+        expectToolError("No topic with that id.") { try call("update_topic", #"{"id":"\#(task1)","name":"x"}"#) }
+        expectToolError("No topic with that id.") {
+            try call("create_task", #"{"title":"New","topic_id":"\#(task2)"}"#)
+        }
+        expectToolError("No topic with that id.") { try call("list_tasks", #"{"topic_id":"\#(task1)"}"#) }
+        expectToolError("No topic with that id.") { try call("list_sessions", #"{"topic_id":"\#(task1)"}"#) }
+        expectToolError("No task with that id.") { try call("list_sessions", #"{"task_id":"\#(topicB)"}"#) }
+
+        let topics = try context.fetch(FetchDescriptor<Topic>()).map(\.name).sorted()
+        let tasks = try context.fetch(FetchDescriptor<TodoTask>()).map(\.title).sorted()
+        #expect(topics == ["A", "B"])
+        #expect(tasks == ["One", "Two"])
+        #expect(box.deselected.isEmpty)
+    }
+
     @Test func idsSurviveReopeningTheStore() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("tunenook-\(UUID().uuidString).store")
         defer {
