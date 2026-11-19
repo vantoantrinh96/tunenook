@@ -26,9 +26,9 @@ jobs:
             {
               echo "❌ PR title must follow Conventional Commits, e.g."
               echo "  feat: add weekly stats        → minor bump (0.3.0 → 0.4.0)"
-              echo "  fix(radio): reconnect on wake → patch bump (0.3.0 → 0.3.1)"
+              echo "  fix|perf|chore: …             → patch bump (0.3.0 → 0.3.1)"
               echo "  feat!: new data model         → major bump (0.3.0 → 1.0.0)"
-              echo "  docs|chore|ci|test|refactor|build|style|revert: … → no release"
+              echo "  docs|ci|test|refactor|build|style|revert: … → no release"
             } | tee -a "$GITHUB_STEP_SUMMARY"
             exit 1
           fi

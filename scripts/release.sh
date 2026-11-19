@@ -23,7 +23,7 @@ level() {
         echo "major"
     elif [[ "$type" == "feat" ]]; then
         echo "minor"
-    elif [[ "$type" == "fix" || "$type" == "perf" ]]; then
+    elif [[ "$type" == "fix" || "$type" == "perf" || "$type" == "chore" ]]; then
         echo "patch"
     else
         echo "none"
