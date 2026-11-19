@@ -163,17 +163,19 @@ final class TuneNookTools {
         return task
     }
 
-    /// The predicate matches the row's primary key only, and row numbers are dense in every table,
-    /// so an id of another entity (or another store) must be rejected before and after the fetch.
+    /// Finds the live row an id names, matching entity, store and primary key.
+    ///
+    /// Two SwiftData behaviours on macOS 15 rule out the obvious lookups, so this scans the
+    /// entity's rows (a personal list of topics or tasks) and compares canonical encodings:
+    /// - a decoded identifier is never `==` to the live one, even with identical fields;
+    /// - `#Predicate { $0.persistentModelID == id }` misses a row with unsaved changes.
+    /// A predicate on the primary key alone would also match a row of another entity with the same
+    /// row number, so the entity is checked first.
     private func row<T: PersistentModel>(_ type: T.Type, id string: String) throws -> T? {
         // A @Model's entity name is its class name (`Schema.entityName(for:)` needs macOS 15).
         guard let id = EntityID.decode(string), id.entityName == String(describing: T.self) else { return nil }
-        // Compare encodings, not `==`: on macOS 15 a decoded identifier never equals the live one,
-        // even with identical entity, store and primary key. Check every result, not just the first:
-        // on macOS 15 the fetch can also return unsaved inserts that are pending in the context.
         let canonical = EntityID.encode(id)
-        return try context.fetch(FetchDescriptor<T>(predicate: #Predicate { $0.persistentModelID == id }))
-            .first { EntityID.encode($0.persistentModelID) == canonical }
+        return try context.fetch(FetchDescriptor<T>()).first { EntityID.encode($0.persistentModelID) == canonical }
     }
 
     func cleanName(_ value: String, field: String) throws -> String {
