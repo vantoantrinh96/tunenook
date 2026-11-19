@@ -5,9 +5,14 @@ struct MenuBarView: View {
     @Environment(TimerEngine.self) private var engine
     @Environment(UpdaterController.self) private var updater
     @Environment(\.openWindow) private var openWindow
+    @Environment(SyncController.self) private var sync
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            if sync.status.needsAttention {
+                syncAttentionRow
+                Divider()
+            }
             TimerPanel()
             Divider()
             RadioPanel()
@@ -18,6 +23,22 @@ struct MenuBarView: View {
         }
         .padding(16)
         .frame(width: 300)
+    }
+
+    private var syncAttentionRow: some View {
+        HStack {
+            Label("Sync needs attention", systemImage: "exclamationmark.icloud")
+                .foregroundStyle(.orange)
+            Spacer()
+            SettingsLink {
+                Text("Open Settings")
+            }
+            .simultaneousGesture(TapGesture().onEnded {
+                UserDefaults.standard.set(SettingsView.syncTab, forKey: SettingsView.tabKey)
+                activateApp()
+            })
+        }
+        .font(.callout)
     }
 
     private var footer: some View {

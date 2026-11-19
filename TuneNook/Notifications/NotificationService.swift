@@ -87,6 +87,14 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
         center.add(UNNotificationRequest(identifier: "tunenook.task-deleted", content: content, trigger: nil))
     }
 
+    /// Sync stopped until the user acts (folder lost, a choice to make, an error).
+    func notifySyncAttention(title: String, body: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        center.add(UNNotificationRequest(identifier: "tunenook.sync-attention", content: content, trigger: nil))
+    }
+
     /// Tells the user focus was paused while they were away, with a button to resume.
     func notifyPausedWhileAway(remaining: TimeInterval) {
         let content = UNMutableNotificationContent()

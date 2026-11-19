@@ -56,6 +56,7 @@ import Foundation
         let result = try folder.read(excluding: "A", now: Date())
         #expect(result.snapshots.isEmpty)
         #expect(result.notes == ["Couldn't read B.json. It will be tried again."])
+        #expect(result.isIncomplete)
     }
 
     @Test func newerFormatIsSkippedWithNote() throws {
@@ -78,7 +79,31 @@ import Foundation
         let result = try folder.read(excluding: "A", now: Date())
         #expect(result.snapshots.isEmpty)
         #expect(result.notes.isEmpty)
+        #expect(result.isIncomplete)
         #expect(calls.urls.map(\.lastPathComponent) == ["B.json"])
+    }
+
+    @Test func ownPlaceholderIsNotIncomplete() throws {
+        let dir = try makeDir(); defer { try? FileManager.default.removeItem(at: dir) }
+        try FileManager.default.createDirectory(at: devicesDir(dir), withIntermediateDirectories: true)
+        try Data().write(to: devicesDir(dir).appendingPathComponent(".A.json.icloud"))
+        var folder = SyncFolder(url: dir)
+        folder.startDownload = { _ in }
+        #expect(!(try folder.read(excluding: "A", now: Date())).isIncomplete)
+    }
+
+    @Test func readableFolderIsComplete() throws {
+        let dir = try makeDir(); defer { try? FileManager.default.removeItem(at: dir) }
+        let folder = SyncFolder(url: dir)
+        try folder.write(snap("B"))
+        #expect(!(try folder.read(excluding: "A", now: Date())).isIncomplete)
+    }
+
+    @Test func iCloudPathGetsNoAccountNote() throws {
+        let dir = try makeDir().appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs/TuneNook")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        #expect(try SyncFolder(url: dir).read(excluding: "A", now: Date()).notes.isEmpty)
     }
 
     @Test func removeDeletesOnlyThatFile() throws {

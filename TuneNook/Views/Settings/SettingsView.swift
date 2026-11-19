@@ -1,22 +1,35 @@
 import SwiftUI
 
 struct SettingsView: View {
+    /// The open tab; others (the menu bar's sync row) set it to show a tab.
+    static let tabKey = "settings.selectedTab"
+    static let syncTab = "sync"
+
+    @AppStorage(SettingsView.tabKey) private var tab = "general"
+
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             GeneralSettingsTab()
                 .tabItem { Label("General", systemImage: "gearshape") }
+                .tag("general")
             TimerSettingsTab()
                 .tabItem { Label("Timer", systemImage: "timer") }
+                .tag("timer")
             GoalSettingsTab()
                 .tabItem { Label("Goal", systemImage: "flame") }
+                .tag("goal")
             MusicSettingsTab()
                 .tabItem { Label("Music", systemImage: "music.note") }
+                .tag("music")
             RewardSettingsTab()
                 .tabItem { Label("Rewards", systemImage: "gift") }
+                .tag("rewards")
             SyncSettingsTab()
                 .tabItem { Label("Sync", systemImage: "arrow.triangle.2.circlepath.icloud") }
+                .tag(SettingsView.syncTab)
             AgentsSettingsTab()
                 .tabItem { Label("Agents", systemImage: "point.3.connected.trianglepath.dotted") }
+                .tag("agents")
         }
         .frame(width: 460)
     }

@@ -10,6 +10,11 @@ final class SyncTestClock {
 }
 
 @MainActor
+final class NoticeLog {
+    var items: [SyncAttentionNotice] = []
+}
+
+@MainActor
 final class RadioFlag {
     var stopped = true
 }
@@ -25,6 +30,7 @@ final class SyncTestMac {
     let engine: TimerEngine
     let baselineURL: URL
     let controller: SyncController
+    let notices = NoticeLog()
     private let radio = RadioFlag()
     var radioStopped: Bool {
         get { radio.stopped }
@@ -43,10 +49,12 @@ final class SyncTestMac {
         engine = TimerEngine(clock: { clock.now }, settings: { settings })
         self.baselineURL = baselineURL
         let radio = self.radio
+        let notices = self.notices
         controller = SyncController(
             context: context, defaults: defaults, goalStore: goalStore, rewards: rewards, engine: engine,
             radio: nil, notifications: nil, baselineURL: baselineURL, now: { clock.now },
-            radioIsStopped: { radio.stopped }, schedules: schedules)
+            radioIsStopped: { radio.stopped }, schedules: schedules,
+            notifyAttention: { notices.items.append($0) })
     }
 
     var deviceID: String { defaults.string(forKey: "sync.deviceID") ?? "" }
@@ -358,5 +366,103 @@ final class SyncControllerTests {
         #expect(mac.controller.isEnabled)
         mac.controller.disable()
         #expect(mac.controller.status == .off)
+    }
+
+    @Test func firstSyncWaitsWhileOtherFileIsIncomplete() async throws {
+        macA.defaults.set(50, forKey: "timer.focusMinutes")
+        await macA.controller.enable(folder: folder)
+        let aFile = deviceFile(macA)
+        let good = try Data(contentsOf: aFile)
+        try good.prefix(good.count / 2).write(to: aFile)
+
+        clock.advance()
+        await macB.controller.enable(folder: folder)
+        #expect(macB.controller.status == .waitingForDownload)
+        #expect(!FileManager.default.fileExists(atPath: deviceFile(macB).path))
+        #expect(!FileManager.default.fileExists(atPath: macB.baselineURL.path))
+        #expect(macB.defaults.object(forKey: "timer.focusMinutes") == nil)
+
+        // The next pass, with the file complete, asks the question.
+        try good.write(to: aFile)
+        clock.advance()
+        await macB.controller.syncNow()
+        guard case .awaitingChoice = macB.controller.status else {
+            Issue.record("Expected awaitingChoice, got \(macB.controller.status)")
+            return
+        }
+    }
+
+    @Test func incompleteFileAfterFirstSyncDoesNotBlock() async throws {
+        try await converge()
+        let bFile = deviceFile(macB)
+        let good = try Data(contentsOf: bFile)
+        try good.prefix(good.count / 2).write(to: bFile)
+        clock.advance()
+        await macA.controller.syncNow()
+        #expect(isSynced(macA))
+        #expect(try macA.topicNames() == ["Home", "Work"])
+    }
+
+    @Test func attentionIsNotifiedOncePerTransition() async throws {
+        try await converge()
+        try FileManager.default.removeItem(at: folder)
+        clock.advance()
+        await macA.controller.syncNow()
+        #expect(macA.controller.status == .needsFolder)
+        clock.advance()
+        await macA.controller.syncNow()
+        #expect(macA.controller.status == .needsFolder)
+        #expect(macA.notices.items.map(\.title) == ["Sync paused"])
+
+        // Back to working, then lost again: a second notice.
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        clock.advance()
+        await macA.controller.syncNow()
+        #expect(isSynced(macA))
+        try FileManager.default.removeItem(at: folder)
+        clock.advance()
+        await macA.controller.syncNow()
+        #expect(macA.notices.items.map(\.title) == ["Sync paused", "Sync paused"])
+    }
+
+    @Test func awaitingChoiceIsNotified() async throws {
+        macA.defaults.set(50, forKey: "timer.focusMinutes")
+        await macA.controller.enable(folder: folder)
+        clock.advance()
+        await macB.controller.enable(folder: folder)
+        #expect(macB.notices.items.map(\.title) == ["Choose which settings to keep"])
+        #expect(macA.notices.items.isEmpty)
+    }
+
+    @Test func enabledStateIsStoredAndPersisted() async throws {
+        #expect(!macA.controller.isEnabled)
+        await macA.controller.enable(folder: folder)
+        #expect(macA.controller.isEnabled)
+        #expect(macA.defaults.bool(forKey: SyncController.enabledKey))
+        macA.controller.disable()
+        #expect(!macA.controller.isEnabled)
+        #expect(!macA.defaults.bool(forKey: SyncController.enabledKey))
+    }
+
+    @Test func pendingMergeOfLiveTopicIsCleared() async throws {
+        let topic = try macA.addTopic("Alive", sessions: 0, at: clock.now.addingTimeInterval(-3_600))
+        let other = try macA.addTopic("Other", sessions: 0, at: clock.now.addingTimeInterval(-3_000))
+        macA.defaults.set([topic.syncID.uuidString: other.syncID.uuidString], forKey: TopicMerger.defaultsKey)
+        await macA.controller.enable(folder: folder)
+        #expect(isSynced(macA))
+        #expect(TopicMerger.pending(in: macA.defaults).isEmpty)
+    }
+
+    @Test func passOverManySessionsIsFast() async throws {
+        try macA.addTopic("Big", sessions: 5_000, at: clock.now.addingTimeInterval(-5_000 * 1_800 - 86_400))
+        await macA.controller.enable(folder: folder)
+        #expect(isSynced(macA))
+        clock.advance()
+        let baseline = try Data(contentsOf: macA.baselineURL)
+        let elapsed = await ContinuousClock().measure { await macA.controller.syncNow() }
+        print("SyncController benchmark, pass over 5,000 sessions: \(elapsed)")
+        #expect(isSynced(macA))
+        #expect(try Data(contentsOf: macA.baselineURL) == baseline)
+        #expect(elapsed < .seconds(1))
     }
 }

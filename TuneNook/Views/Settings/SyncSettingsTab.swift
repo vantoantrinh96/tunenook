@@ -11,7 +11,13 @@ struct SyncStatusText {
         case .needsFolder: "Can't open the sync folder. Choose it again."
         case .awaitingChoice: "Waiting for your choice"
         case .failed(let message): message
+        case .waitingForDownload: "Waiting for iCloud to download…"
         }
+    }
+
+    /// The first-sync button that keeps the other Macs' settings.
+    static func useOtherButton(activeDeviceNames names: [String]) -> String {
+        names.count == 1 ? "Use \(names[0])'s" : "Use Theirs"
     }
 
     static func lastSynced(_ date: Date, now: Date) -> String {
@@ -63,7 +69,7 @@ struct SyncSettingsTab: View {
                     }
                     LabeledContent("Sync now") {
                         Button("Sync Now") { Task { await controller.syncNow() } }
-                            .disabled(controller.status == .syncing)
+                            .disabled(controller.status == .syncing || isAwaitingChoice)
                     }
                 }
             } header: {
@@ -104,7 +110,9 @@ struct SyncSettingsTab: View {
         .fixedSize(horizontal: false, vertical: true)
         .alert(firstSyncTitle, isPresented: awaitingChoice) {
             Button("Use This Mac's") { Task { await controller.resolveFirstSync(useThisMac: true) } }
-            Button("Use \(otherName)'s") { Task { await controller.resolveFirstSync(useThisMac: false) } }
+            Button(SyncStatusText.useOtherButton(activeDeviceNames: activeDeviceNames)) {
+                Task { await controller.resolveFirstSync(useThisMac: false) }
+            }
             Button("Cancel", role: .cancel) { controller.cancelFirstSync() }
         } message: {
             Text(firstSyncMessage)
@@ -142,16 +150,21 @@ struct SyncSettingsTab: View {
         return []
     }
 
+    private var isAwaitingChoice: Bool {
+        if case .awaitingChoice = controller.status { true } else { false }
+    }
+
     private var awaitingChoice: Binding<Bool> {
-        Binding(
-            get: { if case .awaitingChoice = controller.status { true } else { false } },
-            set: { _ in }
-        )
+        Binding(get: { isAwaitingChoice }, set: { _ in })
+    }
+
+    private var activeDeviceNames: [String] {
+        controller.devices.filter { !$0.isStale }.map(\.deviceName)
     }
 
     private var otherName: String {
-        let active = controller.devices.filter { !$0.isStale }
-        return active.count == 1 ? active[0].deviceName : "the other Macs"
+        let names = activeDeviceNames
+        return names.count == 1 ? names[0] : "the other Macs"
     }
 
     private var firstSyncTitle: String { "Your settings differ from \(otherName)" }
@@ -172,7 +185,9 @@ struct SyncSettingsTab: View {
         panel.allowsMultipleSelection = false
         panel.prompt = "Use Folder"
         panel.message = "Choose a folder in iCloud Drive, e.g. a new folder named TuneNook. Pick the same folder on your other Mac."
-        let icloud = FileManager.default.homeDirectoryForCurrentUser
+        // In the sandbox the home directory is the app's container; iCloud Drive is under the real one.
+        let home = getpwuid(getuid())?.pointee.pw_dir.map { String(cString: $0) } ?? NSHomeDirectory()
+        let icloud = URL(fileURLWithPath: home, isDirectory: true)
             .appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs")
         if FileManager.default.fileExists(atPath: icloud.path) { panel.directoryURL = icloud }
         guard panel.runModal() == .OK, let url = panel.url else { return }

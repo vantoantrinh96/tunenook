@@ -22,4 +22,45 @@ import Testing
     @Test func lastSyncedUsesRelativeTime() {
         #expect(SyncStatusText.lastSynced(now.addingTimeInterval(-300), now: now) == "last synced 5 minutes ago")
     }
+
+    @Test func describesWaitingForDownload() {
+        #expect(SyncStatusText.describe(.waitingForDownload, now: now) == "Waiting for iCloud to download…")
+    }
+
+    @Test func useOtherButtonNamesOneMacOrSaysTheirs() {
+        #expect(SyncStatusText.useOtherButton(activeDeviceNames: ["Studio"]) == "Use Studio's")
+        #expect(SyncStatusText.useOtherButton(activeDeviceNames: ["Studio", "Air"]) == "Use Theirs")
+    }
+
+    @Test func onlyStoppedStatesNeedAttention() {
+        #expect(SyncController.Status.needsFolder.needsAttention)
+        #expect(SyncController.Status.failed("x").needsAttention)
+        #expect(SyncController.Status.awaitingChoice([]).needsAttention)
+        #expect(!SyncController.Status.off.needsAttention)
+        #expect(!SyncController.Status.syncing.needsAttention)
+        #expect(!SyncController.Status.waitingForDownload.needsAttention)
+        #expect(!SyncController.Status.synced(now).needsAttention)
+    }
+
+    @Test func attentionTrackerPostsOncePerTransition() {
+        var tracker = SyncAttentionTracker()
+        #expect(tracker.update(for: .syncing) == nil)
+        #expect(tracker.update(for: .needsFolder) == SyncAttentionNotice(
+            title: "Sync paused",
+            body: "TuneNook can't open the sync folder. Open Settings → Sync to choose it again."))
+        // Every pass goes through .syncing back to the same state: no repeat.
+        #expect(tracker.update(for: .syncing) == nil)
+        #expect(tracker.update(for: .needsFolder) == nil)
+        // A different problem posts again.
+        #expect(tracker.update(for: .failed("Disk full")) == SyncAttentionNotice(title: "Sync failed", body: "Disk full"))
+        #expect(tracker.update(for: .failed("Other error")) == nil)
+        #expect(tracker.update(for: .awaitingChoice([])) == SyncAttentionNotice(
+            title: "Choose which settings to keep",
+            body: "Your settings differ from another Mac. Open Settings → Sync to choose."))
+        // Recovering resets, so the same problem later posts again.
+        #expect(tracker.update(for: .synced(now)) == nil)
+        #expect(tracker.update(for: .needsFolder)?.title == "Sync paused")
+        #expect(tracker.update(for: .off) == nil)
+        #expect(tracker.update(for: .needsFolder)?.title == "Sync paused")
+    }
 }

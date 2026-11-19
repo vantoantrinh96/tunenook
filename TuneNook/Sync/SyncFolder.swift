@@ -14,6 +14,9 @@ struct FolderRead: Sendable {
     var devices: [RemoteDevice]
     /// User-facing notes about files that could not be used.
     var notes: [String]
+    /// Another device's file is still downloading or could not be read yet, so
+    /// `snapshots` may be missing a Mac.
+    var isIncomplete = false
 }
 
 enum SyncFolderError: Error, Equatable { case needsFolder }
@@ -35,9 +38,6 @@ struct SyncFolder: Sendable {
 
     func read(excluding deviceID: String, now: Date) throws -> FolderRead {
         var result = FolderRead(snapshots: [], devices: [], notes: [])
-        if url.path.contains("/Library/Mobile Documents"), FileManager.default.ubiquityIdentityToken == nil {
-            result.notes.append("iCloud Drive is off or signed out on this Mac.")
-        }
 
         let fm = FileManager.default
         guard fm.fileExists(atPath: devicesURL.path) else { return result }
@@ -48,6 +48,7 @@ struct SyncFolder: Sendable {
                 // Placeholder: ask iCloud for the real file and pick it up next time.
                 let real = String(name.dropFirst().dropLast(".icloud".count))
                 startDownload(devicesURL.appendingPathComponent(real))
+                if real != "\(deviceID).json" { result.isIncomplete = true }
                 continue
             }
             guard name.hasSuffix(".json"), !name.hasPrefix(".") else { continue }
@@ -57,6 +58,7 @@ struct SyncFolder: Sendable {
             let file = devicesURL.appendingPathComponent(name)
             guard let data = coordinatedRead(file), let header = try? Self.plainDecoder.decode(Header.self, from: data) else {
                 result.notes.append("Couldn't read \(name). It will be tried again.")
+                result.isIncomplete = true
                 continue
             }
             if header.formatVersion > DeviceSnapshot.currentFormat {
@@ -65,6 +67,7 @@ struct SyncFolder: Sendable {
             }
             guard let snapshot = try? DeviceSnapshot.decode(data) else {
                 result.notes.append("Couldn't read \(name). It will be tried again.")
+                result.isIncomplete = true
                 continue
             }
             if snapshot.deviceID == deviceID { continue }
@@ -77,9 +80,13 @@ struct SyncFolder: Sendable {
     }
 
     func write(_ snapshot: DeviceSnapshot) throws {
-        let data = try snapshot.encoded()
+        try write(snapshot.encoded(), deviceID: snapshot.deviceID)
+    }
+
+    /// Writes bytes already encoded from this device's snapshot.
+    func write(_ data: Data, deviceID: String) throws {
         try FileManager.default.createDirectory(at: devicesURL, withIntermediateDirectories: true)
-        let file = devicesURL.appendingPathComponent("\(snapshot.deviceID).json")
+        let file = devicesURL.appendingPathComponent("\(deviceID).json")
         try coordinatedWrite(file) { target in
             // `.atomic` writes a temp file beside the target, then renames it into place.
             try data.write(to: target, options: .atomic)

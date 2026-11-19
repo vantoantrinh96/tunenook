@@ -11,9 +11,23 @@ import SystemConfiguration
 final class SyncController {
     enum Status: Equatable {
         case off, syncing, synced(Date), needsFolder, awaitingChoice([SettingDifference]), failed(String)
+        /// No baseline yet and another Mac's file is still coming down from iCloud.
+        case waitingForDownload
+
+        /// Sync has stopped until the user acts.
+        var needsAttention: Bool {
+            switch self {
+            case .needsFolder, .awaitingChoice, .failed: true
+            default: false
+            }
+        }
     }
 
-    private(set) var status: Status = .off
+    private(set) var status: Status = .off {
+        didSet {
+            if let notice = attention.update(for: status) { notifyAttention(notice) }
+        }
+    }
     private(set) var folderDisplayPath: String?
     private(set) var devices: [RemoteDevice] = []
     private(set) var notes: [String] = []
@@ -21,7 +35,8 @@ final class SyncController {
     /// This Mac's name as other Macs see it.
     var deviceName: String { identity.deviceName }
 
-    var isEnabled: Bool { defaults.bool(forKey: Self.enabledKey) }
+    /// Stored so views observe it; persisted under `enabledKey`.
+    private(set) var isEnabled: Bool
 
     static let deviceIDKey = "sync.deviceID"
     static let enabledKey = "sync.enabled"
@@ -40,6 +55,8 @@ final class SyncController {
     @ObservationIgnored private let radioIsStopped: () -> Bool
     @ObservationIgnored private let setRadioStation: (String) -> Void
     @ObservationIgnored private let notifyTaskDeleted: (String) -> Void
+    @ObservationIgnored private let notifyAttention: (SyncAttentionNotice) -> Void
+    @ObservationIgnored private var attention = SyncAttentionTracker()
     @ObservationIgnored private let schedules: Bool
     @ObservationIgnored private let identity: DeviceSnapshot
 
@@ -60,14 +77,16 @@ final class SyncController {
                      baselineURL: URL, now: @escaping () -> Date = Date.init) {
         self.init(context: context, defaults: defaults, goalStore: goalStore, rewards: rewards, engine: engine,
                   radio: radio, notifications: notifications, baselineURL: baselineURL, now: now,
-                  radioIsStopped: nil, schedules: true)
+                  radioIsStopped: nil, schedules: true, notifyAttention: nil)
     }
 
     /// `radioIsStopped` overrides the radio's state (tests); `schedules: false` keeps
-    /// passes to explicit `syncNow()` calls.
+    /// passes to explicit `syncNow()` calls; `notifyAttention` overrides the
+    /// user notification posted when sync stops until the user acts (tests).
     init(context: ModelContext, defaults: UserDefaults, goalStore: GoalStore, rewards: RewardStore,
          engine: TimerEngine, radio: RadioPlayer?, notifications: NotificationService?,
-         baselineURL: URL, now: @escaping () -> Date, radioIsStopped: (() -> Bool)?, schedules: Bool) {
+         baselineURL: URL, now: @escaping () -> Date, radioIsStopped: (() -> Bool)?, schedules: Bool,
+         notifyAttention: ((SyncAttentionNotice) -> Void)? = nil) {
         self.context = context
         self.defaults = defaults
         self.goalStore = goalStore
@@ -85,6 +104,10 @@ final class SyncController {
             self.setRadioStation = { setting?.write(.string($0), to: defaults) }
         }
         self.notifyTaskDeleted = { [weak notifications] in notifications?.notifyTaskDeletedElsewhere(taskTitle: $0) }
+        self.notifyAttention = notifyAttention ?? { [weak notifications] notice in
+            notifications?.notifySyncAttention(title: notice.title, body: notice.body)
+        }
+        self.isEnabled = defaults.bool(forKey: Self.enabledKey)
 
         let deviceID: String
         if let saved = defaults.string(forKey: Self.deviceIDKey), !saved.isEmpty {
@@ -126,7 +149,7 @@ final class SyncController {
         }
         setFolder(folder)
         awaitingFirstSyncChoice = false
-        defaults.set(true, forKey: Self.enabledKey)
+        setEnabled(true)
         startScheduling()
         await syncNow()
     }
@@ -140,7 +163,7 @@ final class SyncController {
     func cancelFirstSync() {
         awaitingFirstSyncChoice = false
         SyncBookmark.clear(in: defaults)
-        defaults.set(false, forKey: Self.enabledKey)
+        setEnabled(false)
         stopScheduling()
         folderURL = nil
         folderDisplayPath = nil
@@ -149,9 +172,14 @@ final class SyncController {
 
     func disable() {
         awaitingFirstSyncChoice = false
-        defaults.set(false, forKey: Self.enabledKey)
+        setEnabled(false)
         stopScheduling()
         status = .off
+    }
+
+    private func setEnabled(_ enabled: Bool) {
+        isEnabled = enabled
+        defaults.set(enabled, forKey: Self.enabledKey)
     }
 
     func removeDevice(_ id: String) throws {
@@ -205,8 +233,15 @@ final class SyncController {
             notes = read.notes
 
             // From here to the saved baseline nothing suspends, so no edit slips in between.
-            let passNow = now()
-            let baseline = loadBaseline()
+            // Millisecond time, as every record keeps, for the merges and the first-sync choice alike.
+            let passNow = now().syncMillis
+            let (baseline, baselineData) = loadBaseline()
+            if baseline == nil, read.isIncomplete {
+                // Deciding the first sync without the other Mac's file would quietly pick
+                // a side later; wait for iCloud and try again on the next pass.
+                status = .waitingForDownload
+                return
+            }
             var local = try capturer.capture(baseline: baseline, now: passNow)
             if baseline == nil, !read.snapshots.isEmpty {
                 let remote = SyncMerge.merge(read.snapshots, into: identity, now: passNow)
@@ -223,7 +258,7 @@ final class SyncController {
                 }
             }
 
-            let merged = SyncMerge.merge([local] + read.snapshots, into: local, now: passNow.syncMillis)
+            let merged = SyncMerge.merge([local] + read.snapshots, into: local, now: passNow)
             isApplying = true
             do {
                 try applier.apply(SyncMerge.resolve(merged))
@@ -234,16 +269,25 @@ final class SyncController {
             }
             isApplying = false
             var published = deferringUnappliedSettings(merged: merged, local: local)
-            if let baseline, sameContent(published, baseline),
+            // Encoded once, then used to compare, to save the baseline and to write the file.
+            var data: Data?
+            if let baseline, let baselineData,
                passNow.timeIntervalSince(baseline.exportedAt) < Self.refreshInterval {
-                published.exportedAt = baseline.exportedAt
+                // Unchanged apart from `exportedAt` keeps the old one, so the file stays byte-identical.
+                var kept = published
+                kept.exportedAt = baseline.exportedAt
+                let keptData = try kept.encoded()
+                if keptData == baselineData {
+                    published = kept
+                    data = keptData
+                }
             }
-            try saveBaseline(published)
+            let fileData = try data ?? published.encoded()
+            if fileData != baselineData { try saveBaseline(fileData) }
             clearSettledMerges(in: published, now: passNow)
 
-            let file = published
-            let data = try file.encoded()
-            try await Task.detached { try folder.writeIfChanged(file, data: data) }.value
+            try await Task.detached { try folder.writeIfChanged(deviceID: deviceID, data: fileData) }.value
+            guard isEnabled else { return }
             status = .synced(passNow)
         } catch SyncFolderError.needsFolder {
             status = .needsFolder
@@ -252,15 +296,16 @@ final class SyncController {
         }
     }
 
-    /// Forgets merges whose source tombstone is older than 90 days, or pruned from the baseline.
+    /// Forgets merges whose source tombstone is older than 90 days, was pruned from
+    /// the baseline, or is live again (another Mac's newer edit brought it back).
     private func clearSettledMerges(in baseline: DeviceSnapshot, now: Date) {
         let pending = TopicMerger.pending(in: defaults)
         guard !pending.isEmpty else { return }
         let cutoff = now.addingTimeInterval(-90 * 86_400)
         let topics = Dictionary(baseline.topics.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let settled = pending.keys.filter { id in
-            guard let topic = topics[id] else { return true }
-            return topic.meta.deleted && topic.meta.modifiedAt < cutoff
+            guard let topic = topics[id], topic.meta.deleted else { return true }
+            return topic.meta.modifiedAt < cutoff
         }
         TopicMerger.clear(Array(settled), in: defaults)
     }
@@ -284,14 +329,6 @@ final class SyncController {
         case "rewards.menuBarIcon": return .string(rewards.selectedIconID)
         default: return SyncedSetting.all.first { $0.key == key }?.read(from: defaults)
         }
-    }
-
-    /// Equal apart from `exportedAt`; compared encoded, since merged records come in no set order.
-    private func sameContent(_ a: DeviceSnapshot, _ b: DeviceSnapshot) -> Bool {
-        var a = a
-        a.exportedAt = b.exportedAt
-        guard let left = try? a.encoded(), let right = try? b.encoded() else { return false }
-        return left == right
     }
 
     private var capturer: SnapshotCapture {
@@ -322,15 +359,17 @@ final class SyncController {
         return SyncFolder(url: folderURL)
     }
 
-    private func loadBaseline() -> DeviceSnapshot? {
-        guard let data = try? Data(contentsOf: baselineURL) else { return nil }
-        return try? DeviceSnapshot.decode(data)
+    /// The saved baseline and its bytes; both nil when missing or unreadable.
+    private func loadBaseline() -> (DeviceSnapshot?, Data?) {
+        guard let data = try? Data(contentsOf: baselineURL),
+              let snapshot = try? DeviceSnapshot.decode(data) else { return (nil, nil) }
+        return (snapshot, data)
     }
 
-    private func saveBaseline(_ snapshot: DeviceSnapshot) throws {
+    private func saveBaseline(_ data: Data) throws {
         try FileManager.default.createDirectory(at: baselineURL.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true)
-        try snapshot.encoded().write(to: baselineURL, options: .atomic)
+        try data.write(to: baselineURL, options: .atomic)
     }
 
     static func displayPath(for url: URL) -> String {
@@ -408,10 +447,51 @@ final class SyncController {
 private extension SyncFolder {
     /// Skips the write when the file already holds exactly these bytes, and
     /// never recreates a folder removed since the pass began.
-    func writeIfChanged(_ snapshot: DeviceSnapshot, data: Data) throws {
+    func writeIfChanged(deviceID: String, data: Data) throws {
         guard FileManager.default.fileExists(atPath: url.path) else { throw SyncFolderError.needsFolder }
-        let file = url.appendingPathComponent("devices/\(snapshot.deviceID).json")
+        let file = url.appendingPathComponent("devices/\(deviceID).json")
         if let existing = try? Data(contentsOf: file), existing == data { return }
-        try write(snapshot)
+        try write(data, deviceID: deviceID)
+    }
+}
+
+/// A user notification telling the user sync has stopped until they act.
+struct SyncAttentionNotice: Equatable, Sendable {
+    var title: String
+    var body: String
+}
+
+/// Decides when to post a `SyncAttentionNotice`: once on entering a state that
+/// needs the user, not again on every pass that ends there. A pass shows
+/// `.syncing` on the way, which neither posts nor resets.
+struct SyncAttentionTracker {
+    private enum Kind { case needsFolder, awaitingChoice, failed }
+    private var current: Kind?
+
+    mutating func update(for status: SyncController.Status) -> SyncAttentionNotice? {
+        let kind: Kind?
+        let notice: SyncAttentionNotice?
+        switch status {
+        case .syncing:
+            return nil
+        case .needsFolder:
+            kind = .needsFolder
+            notice = SyncAttentionNotice(
+                title: "Sync paused",
+                body: "TuneNook can't open the sync folder. Open Settings → Sync to choose it again.")
+        case .awaitingChoice:
+            kind = .awaitingChoice
+            notice = SyncAttentionNotice(
+                title: "Choose which settings to keep",
+                body: "Your settings differ from another Mac. Open Settings → Sync to choose.")
+        case .failed(let message):
+            kind = .failed
+            notice = SyncAttentionNotice(title: "Sync failed", body: message)
+        case .off, .synced, .waitingForDownload:
+            kind = nil
+            notice = nil
+        }
+        defer { current = kind }
+        return kind == current ? nil : notice
     }
 }

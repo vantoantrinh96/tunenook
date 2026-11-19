@@ -95,6 +95,7 @@ struct TuneNookApp: App {
                 .environment(goalStore)
                 .environment(rewards)
                 .environment(updater)
+                .environment(syncController)
                 .modelContainer(container)
         } label: {
             MenuBarLabel(engine: engine, rewards: rewards)
