@@ -50,6 +50,7 @@ targets:
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.network.client: true
+        com.apple.security.network.server: true
         # Ad-hoc signing has no Team ID, so Hardened Runtime library validation
         # rejects the embedded Sparkle.framework. Sparkle updates are verified
         # by EdDSA instead.
