@@ -42,3 +42,69 @@ enum SyncMerge {
         return best.values.filter { !isExpired($0[keyPath: meta], now: now) }
     }
 }
+
+/// What the local store should hold after a merge: live rows only, with
+/// topic merges followed and dangling references cleaned up.
+struct ResolvedState: Equatable, Sendable {
+    var topics: [SyncTopic]
+    var tasks: [SyncTask]
+    var sessions: [SyncSession]
+    var settings: [String: SyncValue]
+    var goals: [SyncGoal]
+    var unlockedIcons: Set<String>
+}
+
+extension SyncMerge {
+    private static let maxMergeHops = 16
+
+    private enum TopicOutcome {
+        case live(UUID), deleted, unknown
+    }
+
+    static func resolve(_ snapshot: DeviceSnapshot) -> ResolvedState {
+        let topicsByID = Dictionary(snapshot.topics.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+
+        func outcome(for start: UUID) -> TopicOutcome {
+            var current = start
+            var seen: Set<UUID> = []
+            for _ in 0...maxMergeHops {
+                guard seen.insert(current).inserted else { return .deleted }   // cycle
+                guard let topic = topicsByID[current] else { return .unknown }
+                if !topic.meta.deleted { return .live(topic.id) }
+                guard let next = topic.mergedInto else { return .deleted }
+                current = next
+            }
+            return .deleted   // chain too long
+        }
+
+        var tasks: [SyncTask] = []
+        for var task in snapshot.tasks where !task.meta.deleted {
+            guard let topicID = task.topicID else { continue }
+            switch outcome(for: topicID) {
+            case .live(let target):
+                task.topicID = target
+                tasks.append(task)
+            case .deleted, .unknown:
+                continue
+            }
+        }
+        let liveTaskIDs = Set(tasks.map(\.id))
+
+        var sessions: [SyncSession] = []
+        for var session in snapshot.sessions where !session.meta.deleted {
+            if let taskID = session.taskID, !liveTaskIDs.contains(taskID) { session.taskID = nil }
+            sessions.append(session)
+        }
+
+        var settings: [String: SyncValue] = [:]
+        for (key, setting) in snapshot.settings where !setting.meta.deleted { settings[key] = setting.value }
+
+        return ResolvedState(
+            topics: snapshot.topics.filter { !$0.meta.deleted },
+            tasks: tasks,
+            sessions: sessions,
+            settings: settings,
+            goals: snapshot.goals.filter { !$0.meta.deleted }.sorted { $0.day < $1.day },
+            unlockedIcons: Set(snapshot.unlockedIcons))
+    }
+}
