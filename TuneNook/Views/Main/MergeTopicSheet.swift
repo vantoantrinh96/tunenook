@@ -1,23 +1,37 @@
 import SwiftData
 import SwiftUI
 
-/// Picks the topic that `source` is folded into.
+/// Picks the topic that a topic is folded into. The merge itself is left to
+/// `onChoose`, and nothing here reads the source after the sheet opens: once it
+/// is merged it is deleted, and a redraw must not touch it.
 struct MergeTopicSheet: View {
-    let source: Topic
-    var onMerged: (Topic) -> Void
+    var onChoose: (Topic) -> Void
 
-    @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Topic.createdAt) private var topics: [Topic]
 
+    private let sourceID: PersistentIdentifier
+    @State private var sourceName: String
+    @State private var taskCount: Int
     @State private var chosen: Topic?
-    @State private var failure: String?
 
-    private var others: [Topic] { topics.filter { $0 !== source } }
+    init(source: Topic, onChoose: @escaping (Topic) -> Void) {
+        self.onChoose = onChoose
+        sourceID = source.persistentModelID
+        _sourceName = State(initialValue: source.name)
+        _taskCount = State(initialValue: source.tasks.count)
+    }
+
+    private var others: [Topic] { topics.filter { $0.persistentModelID != sourceID } }
+
+    static func summary(taskCount: Int, sourceName: String) -> String {
+        let tasks = taskCount == 1 ? "1 task" : "\(taskCount) tasks"
+        return "Moves \(tasks) and their history into the topic you pick, then deletes “\(sourceName)”."
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Merge “\(source.name)” into…")
+            Text("Merge “\(sourceName)” into…")
                 .font(.headline)
             List(others, selection: $chosen) { topic in
                 HStack {
@@ -30,33 +44,23 @@ struct MergeTopicSheet: View {
                 .tag(topic)
             }
             .frame(height: 200)
-            Text("Moves \(source.tasks.count) tasks and their history into the topic you pick, then deletes “\(source.name)”.")
+            Text(Self.summary(taskCount: taskCount, sourceName: sourceName))
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            if let failure {
-                Text(failure).font(.caption).foregroundStyle(.red)
-            }
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("Merge", action: merge)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(chosen == nil)
+                Button("Merge") {
+                    guard let target = chosen else { return }
+                    dismiss()
+                    onChoose(target)
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(chosen == nil)
             }
         }
         .padding(20)
         .frame(width: 380)
-    }
-
-    private func merge() {
-        guard let target = chosen else { return }
-        do {
-            try TopicMerger.merge(source, into: target, context: context, defaults: .standard)
-            onMerged(target)
-            dismiss()
-        } catch {
-            failure = error.localizedDescription
-        }
     }
 }

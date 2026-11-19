@@ -11,6 +11,7 @@ struct TopicSidebar: View {
     @State private var editing: TopicDraft?
     @State private var pendingDelete: Topic?
     @State private var merging: Topic?
+    @State private var mergeError: String?
 
     var body: some View {
         List(selection: $selection) {
@@ -48,9 +49,14 @@ struct TopicSidebar: View {
             TopicEditor(draft: draft) { saved in selection = .topic(saved) }
         }
         .sheet(item: $merging) { source in
-            MergeTopicSheet(source: source) { target in
-                if selection == .topic(source) { selection = .topic(target) }
-            }
+            MergeTopicSheet(source: source) { target in merge(source, into: target) }
+        }
+        .alert("Couldn't merge the topics", isPresented: Binding(
+            get: { mergeError != nil }, set: { if !$0 { mergeError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(mergeError ?? "")
         }
         .confirmationDialog(
             "Delete “\(pendingDelete?.name ?? "")” and all its tasks?",
@@ -62,6 +68,20 @@ struct TopicSidebar: View {
             }
         } message: {
             Text("Past session history is kept.")
+        }
+    }
+
+    /// Closes the sheet and moves the selection off the source first, so nothing
+    /// on screen reads the source once the merge has deleted it.
+    private func merge(_ source: Topic, into target: Topic) {
+        merging = nil
+        let wasSelected = selection == .topic(source)
+        if wasSelected { selection = .topic(target) }
+        do {
+            try TopicMerger.merge(source, into: target, context: context, defaults: .standard)
+        } catch {
+            if wasSelected { selection = .topic(source) }
+            mergeError = error.localizedDescription
         }
     }
 

@@ -15,14 +15,23 @@ enum TopicMerger {
     static func merge(_ source: Topic, into target: Topic, context: ModelContext, defaults: UserDefaults) throws {
         guard source !== target, source.syncID != target.syncID else { throw MergeError.sameTopic }
         let sourceID = source.syncID
-        for task in Array(source.tasks) { task.topic = target }
-        context.delete(source)
-        try context.save()
-        var merges = pending(in: defaults)
+        // Recorded before saving: a sync pass right after the save must already
+        // tombstone the source with `mergedInto`.
+        let before = pending(in: defaults)
+        var merges = before
         merges[sourceID] = target.syncID
         // Merges that pointed at the source now lead to the target.
         for (key, value) in merges where value == sourceID { merges[key] = target.syncID }
         store(merges, in: defaults)
+        for task in Array(source.tasks) { task.topic = target }
+        context.delete(source)
+        do {
+            try context.save()
+        } catch {
+            context.rollback()
+            store(before, in: defaults)
+            throw error
+        }
     }
 
     static func pending(in defaults: UserDefaults) -> [UUID: UUID] {

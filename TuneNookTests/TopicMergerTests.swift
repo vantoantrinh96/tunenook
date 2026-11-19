@@ -82,4 +82,11 @@ struct TopicMergerTests {
         }
         #expect(TopicMerger.pending(in: defaults).isEmpty)
     }
+
+    @Test func summaryCountsTasks() {
+        #expect(MergeTopicSheet.summary(taskCount: 1, sourceName: "Work")
+                == "Moves 1 task and their history into the topic you pick, then deletes “Work”.")
+        #expect(MergeTopicSheet.summary(taskCount: 3, sourceName: "Work")
+                == "Moves 3 tasks and their history into the topic you pick, then deletes “Work”.")
+    }
 }
