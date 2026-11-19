@@ -17,6 +17,9 @@ final class LoopbackHTTPServer: Sendable {
         var stopped = false
     }
 
+    /// Simultaneous connections served; extras are closed immediately.
+    static let maxConnections = 16
+
     private let port: UInt16
     private let idleTimeout: TimeInterval
     private let handler: @Sendable (HTTPRequest) async -> HTTPResponse
@@ -113,7 +116,7 @@ final class LoopbackHTTPServer: Sendable {
     private func accept(_ connection: NWConnection) {
         let id = ObjectIdentifier(connection)
         let keep: Bool = state.withLock {
-            guard !$0.stopped else { return false }
+            guard !$0.stopped, $0.connections.count < Self.maxConnections else { return false }
             $0.connections[id] = connection
             return true
         }
@@ -131,11 +134,11 @@ final class LoopbackHTTPServer: Sendable {
         let idle = IdleTimer { connection.cancel() }
         queue.asyncAfter(deadline: .now() + idleTimeout, execute: idle.item)
         connection.start(queue: queue)
-        receive(on: connection, buffer: Data(), idle: idle)
+        receive(on: connection, buffer: Data(), head: nil, scanned: 0, idle: idle)
     }
 
     /// All callbacks run on `queue`, which serialises access to `buffer`.
-    private func receive(on connection: NWConnection, buffer: Data, idle: IdleTimer) {
+    private func receive(on connection: NWConnection, buffer: Data, head: HTTPMessage.Head?, scanned: Int, idle: IdleTimer) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] data, _, isComplete, error in
             guard let self else { return }
             if error != nil {
@@ -145,18 +148,26 @@ final class LoopbackHTTPServer: Sendable {
             }
             var buffer = buffer
             if let data { buffer.append(data) }
-            switch HTTPMessage.parse(buffer) {
-            case .incomplete:
-                if isComplete {
+            var head = head
+            if head == nil {
+                switch HTTPMessage.parseHead(buffer, searchFrom: scanned) {
+                case .failure(let status):
                     idle.cancel()
-                    connection.cancel()
-                } else {
-                    self.receive(on: connection, buffer: buffer, idle: idle)
+                    self.reply(HTTPMessage.serialize(status: status), on: connection)
+                    return
+                case .head(let parsed): head = parsed
+                case .incomplete:
+                    if isComplete {
+                        idle.cancel()
+                        connection.cancel()
+                    } else {
+                        // The terminator may straddle reads: rescan the last 3 bytes next time.
+                        self.receive(on: connection, buffer: buffer, head: nil, scanned: max(0, buffer.count - 3), idle: idle)
+                    }
+                    return
                 }
-            case .failure(let status):
-                idle.cancel()
-                self.reply(HTTPMessage.serialize(status: status), on: connection)
-            case .request(let request):
+            }
+            if let head, let request = head.request(from: buffer) {
                 // A complete request is in hand; the handler may legitimately take longer than the idle limit.
                 idle.cancel()
                 let handler = self.handler
@@ -164,6 +175,11 @@ final class LoopbackHTTPServer: Sendable {
                     let response = await handler(request)
                     self.reply(HTTPMessage.serialize(response), on: connection)
                 }
+            } else if isComplete {
+                idle.cancel()
+                connection.cancel()
+            } else {
+                self.receive(on: connection, buffer: buffer, head: head, scanned: scanned, idle: idle)
             }
         }
     }

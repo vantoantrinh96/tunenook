@@ -100,6 +100,47 @@ struct LoopbackHTTPServerTests {
         #expect(reply.isEmpty)  // closed by the server without a response
     }
 
+    @Test func seventeenthConnectionIsClosedWhileFirstSixteenAreServed() async throws {
+        let gate = HandlerGate()
+        let (server, port) = try await startServer { _ in
+            await gate.enter()
+            return .data(Data("ok".utf8))
+        }
+        defer { server.stop() }
+        let request = Data("GET /mcp HTTP/1.1\r\nHost: x\r\n\r\n".utf8)
+
+        var clients: [RawClient] = []
+        for _ in 0..<LoopbackHTTPServer.maxConnections {
+            let c = RawClient(port: port)
+            try await c.connect()
+            c.send(request)
+            clients.append(c)
+        }
+        await gate.waitUntilEntered(LoopbackHTTPServer.maxConnections)
+
+        let extra = RawClient(port: port)
+        try? await extra.connect()
+        #expect(await extra.readToEnd().isEmpty)
+
+        await gate.release()
+        for c in clients {
+            #expect(String(decoding: await c.readToEnd(), as: UTF8.self).hasPrefix("HTTP/1.1 200"))
+        }
+    }
+
+    @Test func slowBodyInSmallChunksIsServed() async throws {
+        let (server, port) = try await startServer { req in .data(req.body ?? Data()) }
+        defer { server.stop() }
+        let body = String(repeating: "x", count: 200)
+        let c = RawClient(port: port)
+        try await c.connect()
+        c.send(Data("POST /mcp HTTP/1.1\r\nContent-Length: 200\r\n\r\n".utf8))
+        for ch in body { c.send(Data(String(ch).utf8)) }
+        let reply = String(decoding: await c.readToEnd(), as: UTF8.self)
+        #expect(reply.hasPrefix("HTTP/1.1 200"))
+        #expect(reply.hasSuffix(body))
+    }
+
     @Test func stopClosesTheListener() async throws {
         let (server, port) = try await startServer()
         server.stop()
@@ -119,5 +160,72 @@ private final class Once: @unchecked Sendable {
         if fired { return false }
         fired = true
         return true
+    }
+}
+
+private actor HandlerGate {
+    private var entered = 0
+    private var released = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var enteredWaiter: (Int, CheckedContinuation<Void, Never>)?
+
+    func enter() async {
+        entered += 1
+        if let (n, cont) = enteredWaiter, entered >= n { enteredWaiter = nil; cont.resume() }
+        if released { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func waitUntilEntered(_ n: Int) async {
+        if entered >= n { return }
+        await withCheckedContinuation { enteredWaiter = (n, $0) }
+    }
+
+    func release() {
+        released = true
+        waiters.forEach { $0.resume() }
+        waiters.removeAll()
+    }
+}
+
+private final class RawClient: @unchecked Sendable {
+    private let conn: NWConnection
+    private let queue = DispatchQueue(label: "test.rawclient")
+
+    init(port: UInt16) {
+        conn = NWConnection(host: .ipv4(.loopback), port: NWEndpoint.Port(rawValue: port)!, using: .tcp)
+    }
+
+    func connect() async throws {
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+            let once = Once()
+            conn.stateUpdateHandler = { state in
+                switch state {
+                case .ready: if once.fire() { cont.resume() }
+                case .failed(let e): if once.fire() { cont.resume(throwing: e) }
+                case .cancelled: if once.fire() { cont.resume(throwing: CancellationError()) }
+                default: break
+                }
+            }
+            conn.start(queue: queue)
+        }
+    }
+
+    func send(_ data: Data) { conn.send(content: data, completion: .contentProcessed { _ in }) }
+
+    /// Reads until the peer closes (or the connection errors).
+    func readToEnd() async -> Data {
+        var all = Data()
+        while true {
+            let (chunk, done): (Data?, Bool) = await withCheckedContinuation { cont in
+                conn.receive(minimumIncompleteLength: 1, maximumLength: 65536) { data, _, isComplete, error in
+                    cont.resume(returning: (data, isComplete || error != nil))
+                }
+            }
+            if let chunk { all.append(chunk) }
+            if done { break }
+        }
+        conn.cancel()
+        return all
     }
 }

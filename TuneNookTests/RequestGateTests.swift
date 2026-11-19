@@ -45,4 +45,12 @@ struct RequestGateTests {
         #expect(gate.rejection(for: req(path: "/x", host: nil, auth: nil))?.statusCode == 404)
         #expect(gate.rejection(for: req(host: nil, auth: nil))?.statusCode == 403)
     }
+
+    @Test func constantTimeEqualRejectsLengthsDifferingBy65536() {
+        let expected = Array("Bearer test-token".utf8)
+        let longer = expected + [UInt8](repeating: 0, count: 65536)
+        #expect(!RequestGate.constantTimeEqual(longer, expected))
+        #expect(!RequestGate.constantTimeEqual(expected, longer))
+        #expect(RequestGate.constantTimeEqual(expected, expected))
+    }
 }

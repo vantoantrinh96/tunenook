@@ -100,4 +100,35 @@ struct HTTPMessageTests {
         #expect(text.hasPrefix("HTTP/1.1 500 "))
         #expect(text.contains("Content-Length: 0\r\n"))
     }
+
+    @Test func tooManyHeaders() {
+        func make(_ n: Int) -> Data {
+            let h = (0..<n).map { "X-H\($0): v\r\n" }.joined()
+            return raw("GET /mcp HTTP/1.1\r\n\(h)\r\n")
+        }
+        #expect(request(HTTPMessage.parse(make(HTTPMessage.maxHeaderCount))) != nil)
+        #expect(failure(HTTPMessage.parse(make(HTTPMessage.maxHeaderCount + 1))) == 431)
+        #expect(HTTPMessage.maxHeaderCount == 100)
+    }
+
+    @Test func bodyInManySmallChunksParsesOnce() {
+        let head = "POST /mcp HTTP/1.1\r\nHost: x\r\nContent-Length: 300\r\n\r\n"
+        let body = String(repeating: "b", count: 300)
+        var buffer = Data()
+        var parsedHead: HTTPMessage.Head?
+        var result: HTTPRequest?
+        for byte in Data((head + body).utf8) {
+            buffer.append(byte)
+            if parsedHead == nil {
+                switch HTTPMessage.parseHead(buffer) {
+                case .head(let h): parsedHead = h
+                case .incomplete: continue
+                case .failure(let status): Issue.record("failed \(status)"); return
+                }
+            }
+            if let h = parsedHead, let r = h.request(from: buffer) { result = r }
+        }
+        #expect(result?.body == Data(body.utf8))
+        #expect(result?.header("Host") == "x")
+    }
 }

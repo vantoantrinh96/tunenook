@@ -33,10 +33,9 @@ struct RequestGate: Sendable {
 
     /// Compares every byte of the expected value; length mismatch is folded into the result.
     static func constantTimeEqual(_ a: [UInt8], _ b: [UInt8]) -> Bool {
-        var diff = UInt8(truncatingIfNeeded: a.count ^ b.count)
-        diff |= UInt8(truncatingIfNeeded: (a.count ^ b.count) >> 8)
+        var diff = UInt(bitPattern: a.count ^ b.count)
         for i in 0..<b.count {
-            diff |= (i < a.count ? a[i] : 0) ^ b[i]
+            diff |= UInt((i < a.count ? a[i] : 0) ^ b[i])
         }
         return diff == 0
     }
