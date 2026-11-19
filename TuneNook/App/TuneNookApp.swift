@@ -16,6 +16,7 @@ struct TuneNookApp: App {
     @State private var launchAtLogin = LaunchAtLogin()
     @State private var hotKeys: HotKeyCenter
     @State private var updater: UpdaterController
+    @State private var mcpServer: MCPServerController
 
     init() {
         let container: ModelContainer
@@ -47,6 +48,16 @@ struct TuneNookApp: App {
         nowPlaying.start()
         let updater = UpdaterController(engine: engine, notifications: notifications)
         let hotKeys = HotKeyCenter { [weak engine] in engine?.toggle() }
+        let mcpTools = TuneNookTools(
+            context: container.mainContext,
+            defaults: .standard,
+            goalStore: goalStore,
+            stations: RadioStation.bundled(),
+            isBusy: { [weak engine] task in engine?.isTaskLocked == true && engine?.currentTask == task },
+            deselect: { [weak engine] task in if engine?.currentTask == task { engine?.currentTask = nil } }
+        )
+        let mcpServer = MCPServerController(tools: mcpTools)
+        Task { await mcpServer.startIfEnabled() }
 
         notifications.requestAuthorization()
         engine.startTicking()
@@ -58,6 +69,7 @@ struct TuneNookApp: App {
         self.nowPlaying = nowPlaying
         _hotKeys = State(initialValue: hotKeys)
         _updater = State(initialValue: updater)
+        _mcpServer = State(initialValue: mcpServer)
         _engine = State(initialValue: engine)
         _radio = State(initialValue: radio)
         _goalStore = State(initialValue: goalStore)
@@ -96,6 +108,7 @@ struct TuneNookApp: App {
                 .environment(launchAtLogin)
                 .environment(hotKeys)
                 .environment(updater)
+                .environment(mcpServer)
                 .modelContainer(container)
         }
     }
