@@ -202,3 +202,14 @@ struct SyncedSetting: Sendable {
         }
     }
 }
+
+extension Date {
+    /// This date floored to whole milliseconds since 1970: the precision a
+    /// snapshot keeps. Idempotent, and survives an encode/decode round trip
+    /// exactly, so records built from the store compare equal to decoded ones.
+    var syncMillis: Date {
+        // The small nudge keeps dates already on a millisecond from dropping
+        // one when `* 1000` lands a hair below the integer.
+        Date(timeIntervalSince1970: (timeIntervalSince1970 * 1000 + 0.001).rounded(.down) / 1000)
+    }
+}

@@ -50,6 +50,10 @@ struct GoalHistory: Codable, Equatable, Sendable {
 
     private(set) var entries: [Entry] = []
 
+    init(entries: [Entry] = []) {
+        self.entries = entries.sorted { $0.effectiveFrom < $1.effectiveFrom }
+    }
+
     var current: DailyGoal { entries.last?.goal ?? .default }
 
     func goal(on day: Date) -> DailyGoal {
