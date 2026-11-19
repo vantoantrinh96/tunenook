@@ -169,7 +169,9 @@ final class TuneNookTools {
         // A @Model's entity name is its class name (`Schema.entityName(for:)` needs macOS 15).
         guard let id = EntityID.decode(string), id.entityName == String(describing: T.self) else { return nil }
         let found = try context.fetch(FetchDescriptor<T>(predicate: #Predicate { $0.persistentModelID == id })).first
-        guard let found, found.persistentModelID == id else { return nil }
+        // Compare encodings, not `==`: on macOS 15 a decoded identifier never equals the live one,
+        // even with identical entity, store and primary key.
+        guard let found, EntityID.encode(found.persistentModelID) == EntityID.encode(id) else { return nil }
         return found
     }
 
