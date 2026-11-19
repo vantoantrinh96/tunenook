@@ -168,11 +168,12 @@ final class TuneNookTools {
     private func row<T: PersistentModel>(_ type: T.Type, id string: String) throws -> T? {
         // A @Model's entity name is its class name (`Schema.entityName(for:)` needs macOS 15).
         guard let id = EntityID.decode(string), id.entityName == String(describing: T.self) else { return nil }
-        let found = try context.fetch(FetchDescriptor<T>(predicate: #Predicate { $0.persistentModelID == id })).first
         // Compare encodings, not `==`: on macOS 15 a decoded identifier never equals the live one,
-        // even with identical entity, store and primary key.
-        guard let found, EntityID.encode(found.persistentModelID) == EntityID.encode(id) else { return nil }
-        return found
+        // even with identical entity, store and primary key. Check every result, not just the first:
+        // on macOS 15 the fetch can also return unsaved inserts that are pending in the context.
+        let canonical = EntityID.encode(id)
+        return try context.fetch(FetchDescriptor<T>(predicate: #Predicate { $0.persistentModelID == id }))
+            .first { EntityID.encode($0.persistentModelID) == canonical }
     }
 
     func cleanName(_ value: String, field: String) throws -> String {
