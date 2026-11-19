@@ -25,6 +25,7 @@ struct TuneNookApp: App {
         } catch {
             fatalError("Could not open the TuneNook store: \(error)")
         }
+        try? SyncIDBackfill.run(in: container.mainContext)
         let engine = TimerEngine()
         let radio = RadioPlayer()
         let notifications = NotificationService()

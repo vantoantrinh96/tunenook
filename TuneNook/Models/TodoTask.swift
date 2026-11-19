@@ -3,6 +3,7 @@ import SwiftData
 
 @Model
 final class TodoTask {
+    var syncID: UUID = UUID()
     var title: String
     var estimatedSessions: Int
     var isDone: Bool
