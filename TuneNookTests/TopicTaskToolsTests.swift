@@ -309,6 +309,6 @@ struct TopicTaskToolsTests {
 
     @Test func unknownToolThrows() throws {
         expectToolError { try call("nope") }
-        #expect(TuneNookTools.toolNames.count == 10)
+        #expect(TuneNookTools.toolNames.count == 12)
     }
 }

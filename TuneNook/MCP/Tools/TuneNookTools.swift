@@ -42,6 +42,7 @@ final class TuneNookTools {
         "list_topics", "create_topic", "update_topic", "delete_topic",
         "list_tasks", "create_task", "update_task", "delete_task",
         "get_settings", "update_settings",
+        "list_sessions", "get_progress",
     ]
 
     /// Runs one tool. `arguments` is a JSON object (empty data means `{}`). Returns a JSON object.
@@ -62,6 +63,8 @@ final class TuneNookTools {
             case "delete_task": return try encode(deleteTask(decode(args)))
             case "get_settings": return try encode(getSettings())
             case "update_settings": return try encode(updateSettings(decode(args)))
+            case "list_sessions": return try encode(listSessions(decode(args)))
+            case "get_progress": return try encode(getProgress(decode(args)))
             default: throw ToolError("Unknown tool \(name).")
             }
         } catch let error as ToolError {
@@ -113,14 +116,18 @@ final class TuneNookTools {
         return try encoder.encode(value)
     }
 
-    /// Full ISO 8601, or `YYYY-MM-DD` meaning the start of that day in `calendar`.
-    func parseDate(_ string: String, field: String) throws -> Date {
+    /// Full ISO 8601, or `YYYY-MM-DD` meaning the start of that day in `calendar`
+    /// (or its last second, with `endOfDay`).
+    func parseDate(_ string: String, field: String, endOfDay: Bool = false) throws -> Date {
         let parts = string.split(separator: "-", omittingEmptySubsequences: false)
         if parts.count == 3, parts[0].count == 4, parts[1].count == 2, parts[2].count == 2,
            let y = Int(parts[0]), let m = Int(parts[1]), let d = Int(parts[2]) {
             let comps = DateComponents(year: y, month: m, day: d)
             if let date = calendar.date(from: comps),
                calendar.dateComponents([.year, .month, .day], from: date) == comps {
+                if endOfDay, let end = calendar.date(byAdding: DateComponents(day: 1, second: -1), to: date) {
+                    return end
+                }
                 return date
             }
         } else {
