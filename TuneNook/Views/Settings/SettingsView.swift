@@ -13,6 +13,8 @@ struct SettingsView: View {
                 .tabItem { Label("Music", systemImage: "music.note") }
             RewardSettingsTab()
                 .tabItem { Label("Rewards", systemImage: "gift") }
+            SyncSettingsTab()
+                .tabItem { Label("Sync", systemImage: "arrow.triangle.2.circlepath.icloud") }
             AgentsSettingsTab()
                 .tabItem { Label("Agents", systemImage: "point.3.connected.trianglepath.dotted") }
         }

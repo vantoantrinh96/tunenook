@@ -18,6 +18,9 @@ final class SyncController {
     private(set) var devices: [RemoteDevice] = []
     private(set) var notes: [String] = []
 
+    /// This Mac's name as other Macs see it.
+    var deviceName: String { identity.deviceName }
+
     var isEnabled: Bool { defaults.bool(forKey: Self.enabledKey) }
 
     static let deviceIDKey = "sync.deviceID"
