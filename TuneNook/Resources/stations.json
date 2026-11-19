@@ -30,5 +30,93 @@
     "symbol": "sparkles",
     "url": "https://ice1.somafm.com/deepspaceone-128-mp3",
     "source": "SomaFM"
+  },
+  {
+    "id": "sonicuniverse",
+    "name": "Sonic Universe",
+    "subtitle": "Nu jazz & modern instrumental jazz",
+    "symbol": "music.note",
+    "url": "https://ice1.somafm.com/sonicuniverse-128-mp3",
+    "source": "SomaFM"
+  },
+  {
+    "id": "bossabeyond",
+    "name": "Bossa Beyond",
+    "subtitle": "Laid-back bossa nova & samba",
+    "symbol": "sun.max",
+    "url": "https://ice1.somafm.com/bossa-128-mp3",
+    "source": "SomaFM"
+  },
+  {
+    "id": "synphaera",
+    "name": "Synphaera",
+    "subtitle": "Modern electronic ambient & space",
+    "symbol": "moon.stars",
+    "url": "https://ice1.somafm.com/synphaera-128-mp3",
+    "source": "SomaFM"
+  },
+  {
+    "id": "spacestation",
+    "name": "Space Station Soma",
+    "subtitle": "Spaced-out ambient & mid-tempo electronica",
+    "symbol": "globe",
+    "url": "https://ice1.somafm.com/spacestation-128-mp3",
+    "source": "SomaFM"
+  },
+  {
+    "id": "rp-mellow",
+    "name": "Radio Paradise Mellow",
+    "subtitle": "Eclectic, mellow listener-supported mix",
+    "symbol": "music.note.list",
+    "url": "https://stream.radioparadise.com/mellow-128",
+    "source": "Radio Paradise"
+  },
+  {
+    "id": "chillhop",
+    "name": "Chillhop",
+    "subtitle": "Jazzy lofi hip-hop beats",
+    "symbol": "headphones",
+    "url": "https://streams.fluxfm.de/Chillhop/mp3-128/streams.fluxfm.de/",
+    "source": "FluxFM"
+  },
+  {
+    "id": "lautfm-lofi",
+    "name": "Lofi",
+    "subtitle": "Lofi beats to study to",
+    "symbol": "book",
+    "url": "https://stream.laut.fm/lofi",
+    "source": "laut.fm"
+  },
+  {
+    "id": "chillsynth",
+    "name": "Chillsynth",
+    "subtitle": "Chilled synthwave",
+    "symbol": "moon",
+    "url": "https://stream.nightride.fm/chillsynth.mp3",
+    "source": "Nightride FM"
+  },
+  {
+    "id": "sleepingpill",
+    "name": "Ambient Sleeping Pill",
+    "subtitle": "Beatless ambient, no talk",
+    "symbol": "bed.double",
+    "url": "https://radio.stereoscenic.com/asp-h",
+    "source": "Stereoscenic"
+  },
+  {
+    "id": "swissclassic",
+    "name": "Radio Swiss Classic",
+    "subtitle": "Classical music, no ads",
+    "symbol": "pianokeys",
+    "url": "https://stream.srg-ssr.ch/m/rsc_de/mp3_128",
+    "source": "SRG SSR"
+  },
+  {
+    "id": "swissjazz",
+    "name": "Radio Swiss Jazz",
+    "subtitle": "Jazz, blues & soul, no ads",
+    "symbol": "music.quarternote.3",
+    "url": "https://stream.srg-ssr.ch/m/rsj/mp3_128",
+    "source": "SRG SSR"
   }
 ]
