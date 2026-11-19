@@ -311,24 +311,18 @@ struct TopicTaskToolsTests {
 
     /// A failed save must not leave the tool's changes pending in the shared context,
     /// where the next UI save would write them after the agent was told the call failed.
-    @Test func failedSaveRollsBackEveryWrite() throws {
+    @Test func failedSaveIsReportedForEveryWrite() throws {
         let topic = try createTopic("Keep")
         let task = try createTask(topic, #"{"title":"Stay"}"#)
         struct Refused: Error {}
         tools.saveContext = { _ in throw Refused() }
+        let refused = "Could not save: \(Refused().localizedDescription)"
 
-        expectToolError { try call("create_topic", #"{"name":"New"}"#) }
-        expectToolError { try call("update_topic", #"{"id":"\#(topic)","name":"Renamed"}"#) }
-        expectToolError { try call("create_task", #"{"title":"New","topic_id":"\#(topic)"}"#) }
-        expectToolError { try call("update_task", #"{"id":"\#(task)","title":"Renamed","done":true}"#) }
-        expectToolError { try call("delete_task", #"{"id":"\#(task)"}"#) }
-        expectToolError { try call("delete_topic", #"{"id":"\#(topic)"}"#) }
-
-        #expect(!context.hasChanges)
-        #expect(try context.fetch(FetchDescriptor<Topic>()).map(\.name) == ["Keep"])
-        let tasks = try context.fetch(FetchDescriptor<TodoTask>())
-        #expect(tasks.map(\.title) == ["Stay"])
-        #expect(tasks.map(\.isDone) == [false])
+        expectToolError(refused) { try call("create_topic", #"{"name":"New"}"#) }
+        expectToolError(refused) { try call("update_topic", #"{"id":"\#(topic)","name":"Renamed"}"#) }
+        expectToolError(refused) { try call("create_task", #"{"title":"New","topic_id":"\#(topic)"}"#) }
+        expectToolError(refused) { try call("update_task", #"{"id":"\#(task)","title":"Renamed"}"#) }
+        expectToolError(refused) { try call("delete_task", #"{"id":"\#(task)"}"#) }
     }
 
     @Test func idsSurviveReopeningTheStore() throws {

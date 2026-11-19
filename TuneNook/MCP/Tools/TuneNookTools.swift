@@ -143,12 +143,12 @@ final class TuneNookTools {
 
     // MARK: Store
 
-    /// Saves the tool's writes, or on failure discards them: they must not ride along with the next UI save.
+    /// Saves the tool's writes. A failed save is reported, not rolled back: `ModelContext.rollback()`
+    /// traps inside SwiftData on macOS 15 ("A ModelSnapshot must be initialized with a known-keys dictionary").
     func save() throws {
         do {
             try saveContext(context)
         } catch {
-            context.rollback()
             throw ToolError("Could not save: \(error.localizedDescription)")
         }
     }
