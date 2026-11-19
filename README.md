@@ -86,9 +86,9 @@ The app is ad-hoc signed and not notarized. The first time you open a downloaded
 | PR title | Bump | Example |
 |---|---|---|
 | `feat: …` | minor | 0.3.0 → 0.4.0 |
-| `fix: …`, `perf: …` | patch | 0.3.0 → 0.3.1 |
+| `fix: …`, `perf: …`, `chore: …` | patch | 0.3.0 → 0.3.1 |
 | `feat!: …`, `fix!: …` (any type with `!`) | major | 0.3.0 → 1.0.0 |
-| `docs`, `chore`, `ci`, `test`, `refactor`, `build`, `style`, `revert` | none | |
+| `docs`, `ci`, `test`, `refactor`, `build`, `style`, `revert` | none | |
 
 A scope is optional: `fix(radio): reconnect after sleep`. The build number (`CURRENT_PROJECT_VERSION`) goes up by one with every release. Try a title locally with `scripts/release.sh level "feat: weekly stats"`.
 
