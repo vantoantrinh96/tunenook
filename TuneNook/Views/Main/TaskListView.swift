@@ -36,6 +36,10 @@ struct TaskListView: View {
         .sheet(item: $editing) { task in
             TaskEditor(task: task)
         }
+        .onChange(of: topic.tasks.map(\.persistentModelID)) { _, live in
+            // The task was deleted (or moved away) elsewhere, by an agent say: close its editor.
+            if let task = editing, !live.contains(task.persistentModelID) { editing = nil }
+        }
     }
 
     private func row(_ task: TodoTask) -> some View {
