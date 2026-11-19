@@ -117,6 +117,14 @@ final class RewardStore {
         selectedIconID = icon.id
     }
 
+    /// Adds icons unlocked elsewhere (e.g. on another Mac). Unknown IDs are kept
+    /// so a newer app version's icons survive a round trip.
+    func mergeUnlocked(_ ids: Set<String>) {
+        guard !ids.isSubset(of: unlockedIDs) else { return }
+        unlockedIDs.formUnion(ids)
+        defaults.set(unlockedIDs.sorted(), forKey: Self.unlockedKey)
+    }
+
     /// Records the latest progress and returns icons unlocked by it, in catalogue order.
     @discardableResult
     func update(with progress: AchievementProgress) -> [MenuBarIcon] {

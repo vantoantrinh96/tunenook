@@ -79,6 +79,14 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
         center.add(UNNotificationRequest(identifier: "tunenook.goal-reached", content: content, trigger: nil))
     }
 
+    /// Another Mac deleted the task the running session is for.
+    func notifyTaskDeletedElsewhere(taskTitle: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "Task deleted on another Mac"
+        content.body = "“\(taskTitle)” was deleted on another Mac. Your session keeps running without a task."
+        center.add(UNNotificationRequest(identifier: "tunenook.task-deleted", content: content, trigger: nil))
+    }
+
     /// Tells the user focus was paused while they were away, with a button to resume.
     func notifyPausedWhileAway(remaining: TimeInterval) {
         let content = UNMutableNotificationContent()

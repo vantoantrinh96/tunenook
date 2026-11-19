@@ -227,6 +227,77 @@ struct SnapshotCaptureTests {
         #expect(snap.topics.first?.createdAt == baseline.topics.first?.createdAt)
     }
 
+    @Test func topiclessTaskSessionIsNotRestamped() throws {
+        let task = TodoTask(title: "Loose", createdAt: t0)
+        let session = FocusSession(kind: .focus, startedAt: t0, endedAt: t0.addingTimeInterval(60),
+                                   activeSeconds: 60, completed: true, task: task)
+        context.insert(task); context.insert(session)
+        try context.save()
+
+        let first = try capturer().capture(baseline: nil, now: t1)
+        var second = try capturer().capture(baseline: first, now: t2)
+
+        second.exportedAt = first.exportedAt
+        #expect(second == first)
+    }
+
+    @Test func captureAfterApplyIsUnchanged() throws {
+        let b = SyncMeta(modifiedAt: t0, modifiedBy: "mac-B", deleted: false)
+        let dead = SyncMeta(modifiedAt: t0, modifiedBy: "mac-B", deleted: true)
+        let xID = UUID(), yID = UUID(), zID = UUID()
+        let movedID = UUID(), droppedID = UUID()
+        var merged = DeviceSnapshot.empty(deviceID: "mac-A", deviceName: "Mac A")
+        merged.exportedAt = t1
+        merged.topics = [
+            SyncTopic(id: xID, meta: dead, name: "X", colorHex: "#111", createdAt: t0, deadline: nil, mergedInto: yID),
+            SyncTopic(id: yID, meta: b, name: "Y", colorHex: "#222", createdAt: t0, deadline: t2, mergedInto: nil),
+            SyncTopic(id: zID, meta: dead, name: "Z", colorHex: "#333", createdAt: t0, deadline: nil, mergedInto: nil),
+        ]
+        merged.tasks = [
+            // In a merged-away topic: resolves into Y.
+            SyncTask(id: movedID, meta: b, title: "Moved", estimatedSessions: 2, isDone: false,
+                     createdAt: t0, completedAt: nil, topicID: xID),
+            // In a deleted topic: dropped by resolve.
+            SyncTask(id: droppedID, meta: b, title: "Dropped", estimatedSessions: 1, isDone: true,
+                     createdAt: t0, completedAt: t1, topicID: zID),
+        ]
+        merged.sessions = [
+            SyncSession(id: UUID(), meta: b, kind: "focus", startedAt: t0, endedAt: t0.addingTimeInterval(1_500),
+                        activeSeconds: 1_500, completed: true, taskID: movedID),
+            // Its task is dropped, so it resolves without one.
+            SyncSession(id: UUID(), meta: b, kind: "focus", startedAt: t1, endedAt: t1.addingTimeInterval(1_500),
+                        activeSeconds: 1_400.5, completed: false, taskID: droppedID),
+        ]
+        for setting in SyncedSetting.all {
+            merged.settings[setting.key] = SyncSetting(value: setting.defaultValue, meta: b)
+        }
+        merged.settings["timer.focusMinutes"] = SyncSetting(value: .int(50), meta: b)
+        merged.settings["goals.dayStartHour"] = SyncSetting(value: .int(4), meta: b)
+        merged.settings["rewards.menuBarIcon"] = SyncSetting(value: .string("timer"), meta: b)
+        merged.settings["music.breakStationID"] = SyncSetting(value: .string("jazz"), meta: b)
+        merged.goals = [SyncGoal(day: t0, meta: b, kind: "sessions", target: 6)]
+        merged.unlockedIcons = ["note", "timer"]
+        let baseline = try DeviceSnapshot.decode(merged.encoded())
+
+        let clock = FakeClock()
+        let engine = TimerEngine(clock: { clock.now }, settings: { TimerSettings() })
+        try SnapshotApplier(context: context, defaults: defaults, goalStore: goalStore, rewards: rewards,
+                            engine: engine, radioIsStopped: { true },
+                            setRadioStation: { _ in Issue.record("radio station is unchanged") },
+                            notifyTaskDeleted: { _ in Issue.record("no running task") })
+            .apply(SyncMerge.resolve(baseline))
+
+        let snap = try capturer().capture(baseline: baseline, now: t2)
+
+        func sorted<R>(_ records: [R], _ id: (R) -> UUID) -> [R] { records.sorted { id($0).uuidString < id($1).uuidString } }
+        #expect(sorted(snap.topics, \.id) == sorted(baseline.topics, \.id))
+        #expect(sorted(snap.tasks, \.id) == sorted(baseline.tasks, \.id))
+        #expect(sorted(snap.sessions, \.id) == sorted(baseline.sessions, \.id))
+        #expect(snap.settings == baseline.settings)
+        #expect(snap.goals == baseline.goals)
+        #expect(snap.unlockedIcons.sorted() == baseline.unlockedIcons.sorted())
+    }
+
     @Test func syncMillisIsIdempotent() throws {
         for _ in 0..<1_000 {
             let date = Date(timeIntervalSinceReferenceDate: .random(in: 0...1e9)).syncMillis

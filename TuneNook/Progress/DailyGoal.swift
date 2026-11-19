@@ -98,6 +98,16 @@ final class GoalStore {
 
     func setGoal(_ goal: DailyGoal, now: Date = .now) {
         history.set(goal, from: calendar.day(for: now))
+        persistHistory()
+    }
+
+    /// Replaces the whole history, e.g. with the one merged from other Macs.
+    func replaceHistory(_ history: GoalHistory) {
+        self.history = history
+        persistHistory()
+    }
+
+    private func persistHistory() {
         if let data = try? JSONEncoder().encode(history) {
             defaults.set(data, forKey: Self.historyKey)
         }

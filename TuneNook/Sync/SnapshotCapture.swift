@@ -64,7 +64,7 @@ struct SnapshotCapture {
     // MARK: - Diffing
 
     /// Every local record keeps the baseline's raw record when its content is
-    /// unchanged against the resolved baseline, and is stamped otherwise.
+    /// unchanged against the resolved or raw baseline, and is stamped otherwise.
     /// Records live in the resolved baseline but gone locally become
     /// tombstones; every other baseline record is carried unchanged.
     private func diff<R: SyncRecord, K: Hashable>(
@@ -79,10 +79,12 @@ struct SnapshotCapture {
         for var record in local {
             let k = record[keyPath: key]
             guard localKeys.insert(k).inserted else { continue }
-            // Rows the resolver hides (e.g. a task without a topic) are
-            // compared against their raw baseline form instead.
-            let previous = seenByKey[k] ?? rawByKey[k].flatMap { $0.meta.deleted ? nil : $0 }
-            if let previous, record.sameContent(as: previous), let original = rawByKey[k] {
+            // A row is unchanged if it matches either the resolved baseline
+            // or its raw live form: the resolver hides some rows (a task
+            // without a topic) and rewrites others (that task's sessions
+            // lose their taskID) that the local store still holds as raw.
+            let previous = [seenByKey[k], rawByKey[k].flatMap { $0.meta.deleted ? nil : $0 }].compactMap { $0 }
+            if previous.contains(where: record.sameContent), let original = rawByKey[k] {
                 result.append(original)
             } else {
                 record.meta = stamp
