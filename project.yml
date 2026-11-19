@@ -22,6 +22,9 @@ packages:
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     exactVersion: 2.10.1
+  MCP:
+    url: https://github.com/modelcontextprotocol/swift-sdk
+    exactVersion: 0.12.1
 targets:
   TuneNook:
     type: application
@@ -56,6 +59,7 @@ targets:
           - $(PRODUCT_BUNDLE_IDENTIFIER)-spki
     dependencies:
       - package: Sparkle
+      - package: MCP
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.vantoantrinh96.tunenook
