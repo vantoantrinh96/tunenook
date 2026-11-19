@@ -1,6 +1,7 @@
 import Foundation
 import MCP
 import Observation
+import os
 import Security
 
 /// Owns the local MCP server: whether it is on, its port and bearer token, and its status.
@@ -168,19 +169,28 @@ final class MCPServerController {
 }
 
 /// Puts each HTTP request through the gate, then hands it to the MCP server's transport.
+///
+/// Requests run one at a time, in arrival order. The stateless transport keys its waiters by JSON-RPC id
+/// alone and every client numbers its ids from 0 or 1, so two clients' requests in flight together could
+/// swap answers or leave one waiting forever. Tools run serially on the main actor anyway.
 /// An `initialize` request gets a fresh server and transport (the SDK server accepts one handshake);
-/// handshakes run one at a time so overlapping ones never leave two servers running.
+/// being in the same chain, it waits for earlier requests and never swaps the transport under one.
+/// Each request is answered within `deadline` of its arrival, or gets a 503.
 actor MCPRequestRouter {
+    static let defaultDeadline: Duration = .seconds(30)
+
     private let gate: RequestGate
     private let host: MCPServerHost
+    private let deadline: Duration
     private var transport: StatelessHTTPServerTransport?
     private var stopped = false
-    /// The last queued handshake; each one waits for the previous to finish.
-    private var lastHandshake: Task<HTTPResponse, Never>?
+    /// The last queued request; each one waits for the previous to finish.
+    private var lastRequest: Task<HTTPResponse, Never>?
 
-    init(gate: RequestGate, host: MCPServerHost) {
+    init(gate: RequestGate, host: MCPServerHost, deadline: Duration = defaultDeadline) {
         self.gate = gate
         self.host = host
+        self.deadline = deadline
     }
 
     /// Attaches a first server so requests work before any `initialize`.
@@ -198,36 +208,80 @@ actor MCPRequestRouter {
 
     func handle(_ request: HTTPRequest) async -> HTTPResponse {
         if let rejection = gate.rejection(for: request) { return rejection }
-        if Self.isInitialize(request.body) { return await handshake(request) }
-        guard let transport else { return Self.unavailable }
-        return await transport.handleRequest(request)
-    }
-
-    private func handshake(_ request: HTTPRequest) async -> HTTPResponse {
-        let previous = lastHandshake
+        let expiry = ContinuousClock.now.advanced(by: deadline)
+        let previous = lastRequest
         let task = Task { () -> HTTPResponse in
             _ = await previous?.value
-            guard !stopped else { return Self.unavailable }
-            let fresh = StatelessHTTPServerTransport()
-            do {
-                try await host.attach(transport: fresh)
-            } catch {
-                return Self.unavailable
-            }
-            // Stopped while attaching: don't leave the new server running.
-            guard !stopped else {
-                await host.stop()
-                return Self.unavailable
-            }
-            transport = fresh
-            return await fresh.handleRequest(request)
+            return await self.run(request, by: expiry)
         }
-        lastHandshake = task
+        lastRequest = task
         return await task.value
+    }
+
+    private func run(_ request: HTTPRequest, by expiry: ContinuousClock.Instant) async -> HTTPResponse {
+        guard !stopped else { return Self.unavailable }
+        // Waited its whole deadline in the queue: don't run it, the client is told it failed.
+        guard ContinuousClock.now < expiry else { return Self.tooSlow }
+        if Self.isInitialize(request.body) {
+            guard await attachFresh() else { return Self.unavailable }
+        }
+        guard let transport else { return Self.unavailable }
+        if let response = await Self.response(by: expiry, from: { await transport.handleRequest(request) }) {
+            return response
+        }
+        // Over time. A fresh server drops the stuck request's waiter, so its late answer can never reach a
+        // later request that reuses its id.
+        _ = await attachFresh()
+        return Self.tooSlow
+    }
+
+    /// Replaces the server and transport. False if that failed or the router stopped meanwhile.
+    private func attachFresh() async -> Bool {
+        let fresh = StatelessHTTPServerTransport()
+        do {
+            try await host.attach(transport: fresh)
+        } catch {
+            return false
+        }
+        // Stopped while attaching: don't leave the new server running.
+        guard !stopped else {
+            await host.stop()
+            return false
+        }
+        transport = fresh
+        return true
+    }
+
+    /// `work`'s response, or nil once `expiry` passes. Unstructured on purpose: a waiter the transport never
+    /// resumes ignores cancellation, so a task group would wait for it forever.
+    private static func response(
+        by expiry: ContinuousClock.Instant, from work: @escaping @Sendable () async -> HTTPResponse
+    ) async -> HTTPResponse? {
+        await withCheckedContinuation { (cont: CheckedContinuation<HTTPResponse?, Never>) in
+            let once = OSAllocatedUnfairLock(initialState: false)
+            let finish: @Sendable (HTTPResponse?) -> Void = { response in
+                let first = once.withLock { done -> Bool in
+                    defer { done = true }
+                    return !done
+                }
+                if first { cont.resume(returning: response) }
+            }
+            let timer = Task {
+                try? await Task.sleep(until: expiry, clock: .continuous)
+                finish(nil)
+            }
+            Task {
+                finish(await work())
+                timer.cancel()
+            }
+        }
     }
 
     private static let unavailable = HTTPResponse.error(
         statusCode: 503, .internalError("TuneNook's MCP server isn't available."))
+
+    private static let tooSlow = HTTPResponse.error(
+        statusCode: 503, .internalError("TuneNook took too long to answer. Try again."))
 
     private static func isInitialize(_ body: Data?) -> Bool {
         guard let body,
