@@ -9,16 +9,18 @@ final class TodoTask {
     var isDone: Bool
     var createdAt: Date
     var completedAt: Date?
+    var deadline: Date?
     var topic: Topic?
 
     @Relationship(deleteRule: .nullify, inverse: \FocusSession.task)
     var sessions: [FocusSession] = []
 
-    init(title: String, estimatedSessions: Int = 1, topic: Topic? = nil, createdAt: Date = .now) {
+    init(title: String, estimatedSessions: Int = 1, topic: Topic? = nil, deadline: Date? = nil, createdAt: Date = .now) {
         self.title = title
         self.estimatedSessions = estimatedSessions
         self.isDone = false
         self.topic = topic
+        self.deadline = deadline
         self.createdAt = createdAt
     }
 

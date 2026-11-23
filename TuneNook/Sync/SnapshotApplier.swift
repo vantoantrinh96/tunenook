@@ -39,7 +39,6 @@ struct SnapshotApplier {
             update(topic, \.name, record.name)
             update(topic, \.colorHex, record.colorHex)
             updateDate(topic, \.createdAt, record.createdAt)
-            updateDate(topic, \.deadline, record.deadline)
         }
 
         for record in state.tasks {
@@ -52,6 +51,7 @@ struct SnapshotApplier {
             update(task, \.isDone, record.isDone)
             updateDate(task, \.createdAt, record.createdAt)
             updateDate(task, \.completedAt, record.completedAt)
+            updateDate(task, \.deadline, record.deadline)
             let topic = record.topicID.flatMap { topics[$0] }
             if task.topic?.syncID != topic?.syncID { task.topic = topic }
         }

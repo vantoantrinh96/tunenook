@@ -120,13 +120,14 @@ struct SnapshotCapture {
 
     private func record(_ topic: Topic) -> SyncTopic {
         SyncTopic(id: topic.syncID, meta: placeholder, name: topic.name, colorHex: topic.colorHex,
-                  createdAt: topic.createdAt.syncMillis, deadline: topic.deadline?.syncMillis, mergedInto: nil)
+                  createdAt: topic.createdAt.syncMillis, mergedInto: nil)
     }
 
     private func record(_ task: TodoTask) -> SyncTask {
         SyncTask(id: task.syncID, meta: placeholder, title: task.title, estimatedSessions: task.estimatedSessions,
                  isDone: task.isDone, createdAt: task.createdAt.syncMillis,
-                 completedAt: task.completedAt?.syncMillis, topicID: task.topic?.syncID)
+                 completedAt: task.completedAt?.syncMillis, deadline: task.deadline?.syncMillis,
+                 topicID: task.topic?.syncID)
     }
 
     private func record(_ session: FocusSession) -> SyncSession {

@@ -125,14 +125,15 @@ struct StatsContent: View {
     @ViewBuilder
     private func deadlines(_ progress: FocusProgress) -> some View {
         let dated = topics
-            .filter { $0.deadline != nil && !$0.openTasks.isEmpty }
+            .flatMap(\.openTasks)
+            .filter { $0.deadline != nil }
             .sorted { $0.deadline! < $1.deadline! }
         if !dated.isEmpty {
             card("Deadlines") {
                 VStack(spacing: 10) {
-                    ForEach(dated) { topic in
-                        DeadlineRow(topic: topic, calendar: progress.calendar, today: progress.today)
-                        if topic != dated.last { Divider() }
+                    ForEach(dated) { task in
+                        DeadlineRow(task: task, calendar: progress.calendar, today: progress.today)
+                        if task != dated.last { Divider() }
                     }
                 }
             }
@@ -168,21 +169,21 @@ private struct StatTile<Content: View>: View {
 }
 
 private struct DeadlineRow: View {
-    let topic: Topic
+    let task: TodoTask
     let calendar: FocusCalendar
     let today: Date
 
     var body: some View {
-        let deadline = topic.deadline ?? today
-        let remaining = topic.openTasks.reduce(0) { $0 + max(0, $1.estimatedSessions - $1.actualSessions) }
+        let deadline = task.deadline ?? today
+        let remaining = max(0, task.estimatedSessions - task.actualSessions)
         let daysLeft = calendar.daysBetween(today, deadline) + 1
         HStack {
             Circle()
-                .fill(Color(hex: topic.colorHex))
+                .fill(Color(hex: task.topic?.colorHex ?? Topic.palette.last!))
                 .frame(width: 10, height: 10)
             VStack(alignment: .leading, spacing: 2) {
-                Text(topic.name)
-                Text("Due \(deadline.formatted(date: .abbreviated, time: .omitted)) · \(remaining) ♪ left")
+                Text(task.title)
+                Text("\(task.topic.map { "\($0.name) · " } ?? "")Due \(deadline.formatted(date: .abbreviated, time: .omitted)) · \(remaining) ♪ left")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

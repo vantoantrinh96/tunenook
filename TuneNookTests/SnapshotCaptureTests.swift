@@ -206,7 +206,7 @@ struct SnapshotCaptureTests {
     @Test func tombstonesInBaselineAreCarried() throws {
         var baseline = try capturer().capture(baseline: nil, now: t1)
         let dead = SyncTopic(id: UUID(), meta: SyncMeta(modifiedAt: t0, modifiedBy: "mac-B", deleted: true),
-                             name: "Old", colorHex: "#fff", createdAt: t0, deadline: nil, mergedInto: nil)
+                             name: "Old", colorHex: "#fff", createdAt: t0, mergedInto: nil)
         baseline.topics.append(dead)
 
         let snap = try capturer().capture(baseline: baseline, now: t2)
@@ -249,14 +249,14 @@ struct SnapshotCaptureTests {
         var merged = DeviceSnapshot.empty(deviceID: "mac-A", deviceName: "Mac A")
         merged.exportedAt = t1
         merged.topics = [
-            SyncTopic(id: xID, meta: dead, name: "X", colorHex: "#111", createdAt: t0, deadline: nil, mergedInto: yID),
-            SyncTopic(id: yID, meta: b, name: "Y", colorHex: "#222", createdAt: t0, deadline: t2, mergedInto: nil),
-            SyncTopic(id: zID, meta: dead, name: "Z", colorHex: "#333", createdAt: t0, deadline: nil, mergedInto: nil),
+            SyncTopic(id: xID, meta: dead, name: "X", colorHex: "#111", createdAt: t0, mergedInto: yID),
+            SyncTopic(id: yID, meta: b, name: "Y", colorHex: "#222", createdAt: t0, mergedInto: nil),
+            SyncTopic(id: zID, meta: dead, name: "Z", colorHex: "#333", createdAt: t0, mergedInto: nil),
         ]
         merged.tasks = [
             // In a merged-away topic: resolves into Y.
             SyncTask(id: movedID, meta: b, title: "Moved", estimatedSessions: 2, isDone: false,
-                     createdAt: t0, completedAt: nil, topicID: xID),
+                     createdAt: t0, completedAt: nil, deadline: t2, topicID: xID),
             // In a deleted topic: dropped by resolve.
             SyncTask(id: droppedID, meta: b, title: "Dropped", estimatedSessions: 1, isDone: true,
                      createdAt: t0, completedAt: t1, topicID: zID),

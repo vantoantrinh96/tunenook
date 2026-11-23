@@ -7,15 +7,13 @@ final class Topic {
     var name: String
     var colorHex: String
     var createdAt: Date
-    var deadline: Date?
 
     @Relationship(deleteRule: .cascade, inverse: \TodoTask.topic)
     var tasks: [TodoTask] = []
 
-    init(name: String, colorHex: String = Topic.palette[0], deadline: Date? = nil, createdAt: Date = .now) {
+    init(name: String, colorHex: String = Topic.palette[0], createdAt: Date = .now) {
         self.name = name
         self.colorHex = colorHex
-        self.deadline = deadline
         self.createdAt = createdAt
     }
 

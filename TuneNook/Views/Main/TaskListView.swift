@@ -53,11 +53,7 @@ struct TaskListView: View {
     private var subtitle: String {
         let open = topic.openTasks
         let remaining = open.reduce(0) { $0 + max(0, $1.estimatedSessions - $1.actualSessions) }
-        var parts = ["\(open.count) open", "\(remaining) ♪ left"]
-        if let deadline = topic.deadline {
-            parts.append("due \(deadline.formatted(.relative(presentation: .named)))")
-        }
-        return parts.joined(separator: " · ")
+        return "\(open.count) open · \(remaining) ♪ left"
     }
 
     private func delete(_ task: TodoTask) {
@@ -133,9 +129,14 @@ private struct TaskRow: View {
             }
             .buttonStyle(.plain)
 
-            Text(task.title)
-                .strikethrough(task.isDone)
-                .foregroundStyle(task.isDone ? .secondary : .primary)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(task.title)
+                    .strikethrough(task.isDone)
+                    .foregroundStyle(task.isDone ? .secondary : .primary)
+                if let deadline = task.deadline, !task.isDone {
+                    DueLabel(deadline: deadline)
+                }
+            }
 
             if isCurrent {
                 Label(engine.remaining.clockString, systemImage: "timer")
@@ -171,6 +172,8 @@ private struct TaskEditor: View {
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
     @State private var estimate = 1
+    @State private var hasDeadline = false
+    @State private var deadline = Date.now
 
     var body: some View {
         Form {
@@ -179,12 +182,18 @@ private struct TaskEditor: View {
                 LabeledContent("Estimate", value: "♪ \(estimate)")
             }
             LabeledContent("Done so far", value: "♪ \(task.actualSessions)")
+            Toggle("Deadline", isOn: $hasDeadline)
+            if hasDeadline {
+                DatePicker("Due", selection: $deadline, displayedComponents: .date)
+            }
         }
         .formStyle(.grouped)
         .frame(width: 360)
         .onAppear {
             title = task.title
             estimate = task.estimatedSessions
+            hasDeadline = task.deadline != nil
+            deadline = task.deadline ?? Calendar.current.date(byAdding: .day, value: 7, to: .now) ?? .now
         }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -194,10 +203,32 @@ private struct TaskEditor: View {
                 Button("Save") {
                     task.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
                     task.estimatedSessions = estimate
+                    task.deadline = hasDeadline ? deadline : nil
                     dismiss()
                 }
                 .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
+    }
+}
+
+/// "Due today", "Due tomorrow", "Due Nov 28"; red once the day has passed.
+private struct DueLabel: View {
+    let deadline: Date
+
+    var body: some View {
+        let calendar = Calendar.current
+        let overdue = calendar.startOfDay(for: deadline) < calendar.startOfDay(for: .now)
+        Label(text(calendar), systemImage: overdue ? "exclamationmark.triangle.fill" : "calendar")
+            .font(.caption)
+            .foregroundStyle(overdue ? Color.red : Color.secondary)
+    }
+
+    private func text(_ calendar: Calendar) -> String {
+        if calendar.isDateInToday(deadline) { return "Due today" }
+        if calendar.isDateInTomorrow(deadline) { return "Due tomorrow" }
+        if calendar.isDateInYesterday(deadline) { return "Overdue · yesterday" }
+        let date = deadline.formatted(.dateTime.month(.abbreviated).day())
+        return deadline < .now ? "Overdue · \(date)" : "Due \(date)"
     }
 }

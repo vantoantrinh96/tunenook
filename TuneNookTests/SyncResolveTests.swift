@@ -9,7 +9,7 @@ import Foundation
     }
     func topic(_ id: UUID, deleted: Bool = false, mergedInto: UUID? = nil, at t: TimeInterval = 0) -> SyncTopic {
         SyncTopic(id: id, meta: meta(t, deleted: deleted), name: "n", colorHex: "#fff", createdAt: at(-1000),
-                  deadline: nil, mergedInto: mergedInto)
+                  mergedInto: mergedInto)
     }
     func task(_ id: UUID, topic: UUID?, deleted: Bool = false, at t: TimeInterval = 0) -> SyncTask {
         SyncTask(id: id, meta: meta(t, deleted: deleted), title: "t", estimatedSessions: 1, isDone: false,

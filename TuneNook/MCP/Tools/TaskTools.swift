@@ -11,9 +11,10 @@ struct TaskDTO: Encodable {
     let done: Bool
     let createdAt: Date
     let completedAt: Date?
+    let deadline: Date?
 
     enum CodingKeys: String, CodingKey {
-        case id, title, topicId, topicName, estimatedSessions, actualSessions, done, createdAt, completedAt
+        case id, title, topicId, topicName, estimatedSessions, actualSessions, done, createdAt, completedAt, deadline
     }
 
     func encode(to encoder: Encoder) throws {
@@ -27,6 +28,7 @@ struct TaskDTO: Encodable {
         try c.encode(done, forKey: .done)
         try c.encode(createdAt, forKey: .createdAt)
         try c.encode(completedAt, forKey: .completedAt)
+        try c.encode(deadline, forKey: .deadline)
     }
 }
 
@@ -41,17 +43,21 @@ struct CreateTaskArgs: Decodable {
     var title: String?
     var topicId: String?
     var estimatedSessions: Int?
+    var deadline: String?
 }
 
 struct UpdateTaskArgs: Decodable {
+    enum DeadlineChange { case keep, clear, set(String) }
+
     var id: String?
     var title: String?
     var topicId: String?
     var estimatedSessions: Int?
     var done: Bool?
+    var deadline: DeadlineChange = .keep
     var topicIdIsNull = false
 
-    enum CodingKeys: String, CodingKey { case id, title, topicId, estimatedSessions, done }
+    enum CodingKeys: String, CodingKey { case id, title, topicId, estimatedSessions, done, deadline }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -62,6 +68,9 @@ struct UpdateTaskArgs: Decodable {
         if c.contains(.topicId) {
             if try c.decodeNil(forKey: .topicId) { topicIdIsNull = true } else { topicId = try c.decode(String.self, forKey: .topicId) }
         }
+        if c.contains(.deadline) {
+            deadline = try c.decodeNil(forKey: .deadline) ? .clear : .set(c.decode(String.self, forKey: .deadline))
+        }
     }
 }
 
@@ -70,7 +79,8 @@ extension TuneNookTools {
         TaskDTO(id: EntityID.encode(task.persistentModelID), title: task.title,
                 topicId: task.topic.map { EntityID.encode($0.persistentModelID) }, topicName: task.topic?.name,
                 estimatedSessions: task.estimatedSessions, actualSessions: task.actualSessions,
-                done: task.isDone, createdAt: task.createdAt, completedAt: task.completedAt)
+                done: task.isDone, createdAt: task.createdAt, completedAt: task.completedAt,
+                deadline: task.deadline)
     }
 
     func validEstimate(_ value: Int) throws -> Int {
@@ -96,8 +106,9 @@ extension TuneNookTools {
         let clean = try cleanName(title, field: "title")
         guard let topicID = args.topicId else { throw ToolError("topic_id is required.") }
         let estimate = try args.estimatedSessions.map(validEstimate) ?? 1
+        let deadline = try args.deadline.map { try parseDate($0, field: "deadline") }
         let topic = try topic(id: topicID)
-        let task = TodoTask(title: clean, estimatedSessions: estimate, topic: topic, createdAt: now())
+        let task = TodoTask(title: clean, estimatedSessions: estimate, topic: topic, deadline: deadline, createdAt: now())
         context.insert(task)
         try save()
         return taskDTO(task)
@@ -109,9 +120,16 @@ extension TuneNookTools {
         let title = try args.title.map { try cleanName($0, field: "title") }
         let estimate = try args.estimatedSessions.map(validEstimate)
         let topic = try args.topicId.map { try self.topic(id: $0) }
+        var deadline: Date??
+        switch args.deadline {
+        case .keep: deadline = nil
+        case .clear: deadline = .some(nil)
+        case .set(let string): deadline = .some(try parseDate(string, field: "deadline"))
+        }
         if let title { task.title = title }
         if let estimate { task.estimatedSessions = estimate }
         if let topic { task.topic = topic }
+        if let deadline { task.deadline = deadline }
         if let done = args.done { task.setDone(done, at: now()) }
         try save()
         return taskDTO(task)
