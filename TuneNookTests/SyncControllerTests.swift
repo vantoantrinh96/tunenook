@@ -463,6 +463,7 @@ final class SyncControllerTests {
         print("SyncController benchmark, pass over 5,000 sessions: \(elapsed)")
         #expect(isSynced(macA))
         #expect(try Data(contentsOf: macA.baselineURL) == baseline)
-        #expect(elapsed < .seconds(1))
+        // About 0.5 s on an M-series Mac and 1.6 s on a CI runner; the slow version took 12 s.
+        #expect(elapsed < .seconds(4))
     }
 }
