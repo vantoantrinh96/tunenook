@@ -24,7 +24,7 @@ struct HistoryToolsTests {
             for: Topic.self, TodoTask.self, FocusSession.self,
             configurations: .init(isStoredInMemoryOnly: true))
         context = container.mainContext
-        defaults = UserDefaults(suiteName: UUID().uuidString)!
+        defaults = TestDefaults.make()
         goalStore = GoalStore(defaults: defaults)
         let fixed = now ?? fixedNow
         tools = TuneNookTools(

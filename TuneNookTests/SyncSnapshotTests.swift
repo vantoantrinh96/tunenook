@@ -58,7 +58,7 @@ import Testing
     }
 
     @Test func missingSettingReadsDefault() {
-        let d = UserDefaults(suiteName: UUID().uuidString)!
+        let d = TestDefaults.make()
         let byKey = Dictionary(uniqueKeysWithValues: SyncedSetting.all.map { ($0.key, $0) })
         #expect(byKey["timer.focusMinutes"]!.read(from: d) == .int(25))
         #expect(byKey["music.breakStationID"]!.read(from: d) == .null)
@@ -66,7 +66,7 @@ import Testing
     }
 
     @Test func readWriteRoundTripsEachType() {
-        let d = UserDefaults(suiteName: UUID().uuidString)!
+        let d = TestDefaults.make()
         let byKey = Dictionary(uniqueKeysWithValues: SyncedSetting.all.map { ($0.key, $0) })
         byKey["timer.focusMinutes"]!.write(.int(40), to: d)
         byKey["timer.autoStartFocus"]!.write(.bool(true), to: d)

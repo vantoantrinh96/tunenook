@@ -2,7 +2,6 @@ import AppKit
 import SwiftData
 import SwiftUI
 
-@main
 struct TuneNookApp: App {
     private let container: ModelContainer
     private let notifications: NotificationService

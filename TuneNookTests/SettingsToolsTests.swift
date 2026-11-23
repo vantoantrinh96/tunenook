@@ -21,7 +21,7 @@ struct SettingsToolsTests {
         container = try ModelContainer(
             for: Topic.self, TodoTask.self, FocusSession.self,
             configurations: .init(isStoredInMemoryOnly: true))
-        defaults = UserDefaults(suiteName: UUID().uuidString)!
+        defaults = TestDefaults.make()
         goalStore = GoalStore(defaults: defaults)
         let clock = self.clock
         tools = TuneNookTools(

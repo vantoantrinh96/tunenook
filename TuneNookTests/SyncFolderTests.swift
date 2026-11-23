@@ -133,7 +133,7 @@ import Foundation
 
     @Test func bookmarkRoundTripsAndClears() throws {
         let dir = try makeDir(); defer { try? FileManager.default.removeItem(at: dir) }
-        let defaults = UserDefaults(suiteName: "SyncFolderTests-\(UUID().uuidString)")!
+        let defaults = TestDefaults.make()
         #expect(throws: SyncFolderError.needsFolder) { try SyncBookmark.resolve(from: defaults) }
         try SyncBookmark.save(dir, in: defaults)
         let url = try SyncBookmark.resolve(from: defaults)

@@ -7,7 +7,7 @@ import Testing
 struct TopicMergerTests {
     let container: ModelContainer
     let context: ModelContext
-    let defaults = UserDefaults(suiteName: UUID().uuidString)!
+    let defaults = TestDefaults.make()
 
     init() throws {
         container = try ModelContainer(

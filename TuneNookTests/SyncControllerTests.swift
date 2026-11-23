@@ -42,7 +42,7 @@ final class SyncTestMac {
             for: Topic.self, TodoTask.self, FocusSession.self,
             configurations: .init(isStoredInMemoryOnly: true))
         context = container.mainContext
-        defaults = UserDefaults(suiteName: UUID().uuidString)!
+        defaults = TestDefaults.make()
         goalStore = GoalStore(defaults: defaults)
         rewards = RewardStore(defaults: defaults)
         let settings = TimerSettings(autoStartBreaks: false, autoStartFocus: false)
