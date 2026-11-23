@@ -64,12 +64,11 @@ struct SyncSettingsTab: View {
                             }
                             if controller.status == .needsFolder {
                                 Button("Choose…") { chooseFolder() }
+                            } else {
+                                Button("Sync Now") { Task { await controller.syncNow() } }
+                                    .disabled(controller.status == .syncing || isAwaitingChoice)
                             }
                         }
-                    }
-                    LabeledContent("Sync now") {
-                        Button("Sync Now") { Task { await controller.syncNow() } }
-                            .disabled(controller.status == .syncing || isAwaitingChoice)
                     }
                 }
             } header: {
