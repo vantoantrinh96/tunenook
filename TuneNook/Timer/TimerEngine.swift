@@ -25,7 +25,7 @@ final class TimerEngine {
 
     private(set) var phase: SessionKind = .focus
     private(set) var status: Status = .idle
-    /// Focus sessions completed since the app launched; drives the long-break cycle.
+    /// Focus sessions completed today; drives the long-break cycle, which starts over each day.
     private(set) var completedFocusCount = 0
     private(set) var now: Date
     var currentTask: TodoTask?
@@ -39,6 +39,9 @@ final class TimerEngine {
 
     @ObservationIgnored private let clock: () -> Date
     @ObservationIgnored private let settingsProvider: () -> TimerSettings
+    @ObservationIgnored private let calendar: Calendar
+    /// Start of the day `completedFocusCount` belongs to.
+    @ObservationIgnored private var countedDay: Date?
     @ObservationIgnored private var phaseStartedAt: Date?
     @ObservationIgnored private var runStartedAt: Date?
     @ObservationIgnored private var accumulated: TimeInterval = 0
@@ -46,11 +49,14 @@ final class TimerEngine {
 
     init(
         clock: @escaping () -> Date = Date.init,
-        settings: @escaping () -> TimerSettings = { TimerSettings.load() }
+        settings: @escaping () -> TimerSettings = { TimerSettings.load() },
+        calendar: Calendar = .current
     ) {
         self.clock = clock
         self.settingsProvider = settings
+        self.calendar = calendar
         self.now = clock()
+        self.countedDay = calendar.startOfDay(for: now)
     }
 
     // MARK: Derived state
@@ -177,6 +183,7 @@ final class TimerEngine {
 
     func tick() {
         now = clock()
+        startNewCycleIfNewDay(at: now)
         if case .running(let endsAt) = status, now >= endsAt {
             complete(at: endsAt)
         }
@@ -202,6 +209,7 @@ final class TimerEngine {
         let settings = self.settings
         let next: SessionKind
         if phase == .focus {
+            startNewCycleIfNewDay(at: endDate)
             completedFocusCount += 1
             next = completedFocusCount % settings.longBreakInterval == 0 ? .longBreak : .shortBreak
         } else {
@@ -217,6 +225,16 @@ final class TimerEngine {
             status = .running(endsAt: endsAt)
             onRunningScheduled?(next, endsAt)
             tick()
+        }
+    }
+
+    /// Resets the long-break cycle once `date` falls on a later day than the count.
+    private func startNewCycleIfNewDay(at date: Date) {
+        let day = calendar.startOfDay(for: date)
+        guard let countedDay, day <= countedDay else {
+            countedDay = day
+            completedFocusCount = 0
+            return
         }
     }
 
