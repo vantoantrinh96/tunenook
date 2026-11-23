@@ -10,6 +10,8 @@ struct TopicSidebar: View {
 
     @State private var editing: TopicDraft?
     @State private var pendingDelete: Topic?
+    @State private var merging: Topic?
+    @State private var mergeError: String?
 
     var body: some View {
         List(selection: $selection) {
@@ -25,6 +27,9 @@ struct TopicSidebar: View {
                         .tag(SidebarItem.topic(topic))
                         .contextMenu {
                             Button("Edit…") { editing = TopicDraft(topic: topic) }
+                            if topics.count > 1 {
+                                Button("Merge into…") { merging = topic }
+                            }
                             Button("Delete…", role: .destructive) { pendingDelete = topic }
                         }
                 }
@@ -43,6 +48,16 @@ struct TopicSidebar: View {
         .sheet(item: $editing) { draft in
             TopicEditor(draft: draft) { saved in selection = .topic(saved) }
         }
+        .sheet(item: $merging) { source in
+            MergeTopicSheet(source: source) { target in merge(source, into: target) }
+        }
+        .alert("Couldn't merge the topics", isPresented: Binding(
+            get: { mergeError != nil }, set: { if !$0 { mergeError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(mergeError ?? "")
+        }
         .confirmationDialog(
             "Delete “\(pendingDelete?.name ?? "")” and all its tasks?",
             isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
@@ -53,6 +68,20 @@ struct TopicSidebar: View {
             }
         } message: {
             Text("Past session history is kept.")
+        }
+    }
+
+    /// Closes the sheet and moves the selection off the source first, so nothing
+    /// on screen reads the source once the merge has deleted it.
+    private func merge(_ source: Topic, into target: Topic) {
+        merging = nil
+        let wasSelected = selection == .topic(source)
+        if wasSelected { selection = .topic(target) }
+        do {
+            try TopicMerger.merge(source, into: target, context: context, defaults: .standard)
+        } catch {
+            if wasSelected { selection = .topic(source) }
+            mergeError = error.localizedDescription
         }
     }
 

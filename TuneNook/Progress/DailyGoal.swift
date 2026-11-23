@@ -50,6 +50,10 @@ struct GoalHistory: Codable, Equatable, Sendable {
 
     private(set) var entries: [Entry] = []
 
+    init(entries: [Entry] = []) {
+        self.entries = entries.sorted { $0.effectiveFrom < $1.effectiveFrom }
+    }
+
     var current: DailyGoal { entries.last?.goal ?? .default }
 
     func goal(on day: Date) -> DailyGoal {
@@ -94,6 +98,16 @@ final class GoalStore {
 
     func setGoal(_ goal: DailyGoal, now: Date = .now) {
         history.set(goal, from: calendar.day(for: now))
+        persistHistory()
+    }
+
+    /// Replaces the whole history, e.g. with the one merged from other Macs.
+    func replaceHistory(_ history: GoalHistory) {
+        self.history = history
+        persistHistory()
+    }
+
+    private func persistHistory() {
         if let data = try? JSONEncoder().encode(history) {
             defaults.set(data, forKey: Self.historyKey)
         }

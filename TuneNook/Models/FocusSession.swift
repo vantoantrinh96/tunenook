@@ -20,6 +20,7 @@ enum SessionKind: String, Codable, CaseIterable, Sendable {
 /// One finished (or abandoned) timer phase. Streaks and heatmaps are derived from these rows.
 @Model
 final class FocusSession {
+    var syncID: UUID = UUID()
     var startedAt: Date
     var endedAt: Date
     var kindRaw: String

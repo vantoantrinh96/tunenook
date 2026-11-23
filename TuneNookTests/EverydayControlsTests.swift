@@ -56,7 +56,7 @@ struct EverydayControlsTests {
     }
 
     @Test func shortcutPersistsAndCanBeTurnedOff() {
-        let defaults = UserDefaults(suiteName: "hotkeys-\(UUID())")!
+        let defaults = TestDefaults.make()
         let first = HotKeyCenter(defaults: defaults) {}
         #expect(first.shortcut == .default)
         first.set(nil)

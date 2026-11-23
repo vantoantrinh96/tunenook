@@ -3,6 +3,7 @@ import SwiftData
 
 @Model
 final class Topic {
+    var syncID: UUID = UUID()
     var name: String
     var colorHex: String
     var createdAt: Date

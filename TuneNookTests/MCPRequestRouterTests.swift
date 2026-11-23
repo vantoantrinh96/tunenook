@@ -15,7 +15,7 @@ struct MCPRequestRouterTests {
         container = try ModelContainer(
             for: Topic.self, TodoTask.self, FocusSession.self,
             configurations: .init(isStoredInMemoryOnly: true))
-        defaults = UserDefaults(suiteName: UUID().uuidString)!
+        defaults = TestDefaults.make()
     }
 
     private func makeRouter(deadline: Duration = MCPRequestRouter.defaultDeadline,

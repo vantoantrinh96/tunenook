@@ -5,7 +5,7 @@ import Testing
 @MainActor
 struct RewardsTests {
     func makeStore() -> RewardStore {
-        let defaults = UserDefaults(suiteName: "rewards-tests-\(UUID().uuidString)")!
+        let defaults = TestDefaults.make()
         return RewardStore(defaults: defaults)
     }
 

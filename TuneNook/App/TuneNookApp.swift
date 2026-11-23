@@ -2,7 +2,6 @@ import AppKit
 import SwiftData
 import SwiftUI
 
-@main
 struct TuneNookApp: App {
     private let container: ModelContainer
     private let notifications: NotificationService
@@ -17,6 +16,7 @@ struct TuneNookApp: App {
     @State private var hotKeys: HotKeyCenter
     @State private var updater: UpdaterController
     @State private var mcpServer: MCPServerController
+    @State private var syncController: SyncController
 
     init() {
         let container: ModelContainer
@@ -25,6 +25,7 @@ struct TuneNookApp: App {
         } catch {
             fatalError("Could not open the TuneNook store: \(error)")
         }
+        try? SyncIDBackfill.run(in: container.mainContext)
         let engine = TimerEngine()
         let radio = RadioPlayer()
         let notifications = NotificationService()
@@ -59,6 +60,14 @@ struct TuneNookApp: App {
         let mcpServer = MCPServerController(tools: mcpTools)
         Task { await mcpServer.startIfEnabled() }
 
+        let baselineURL = URL.applicationSupportDirectory
+            .appendingPathComponent("TuneNook", isDirectory: true)
+            .appendingPathComponent("sync-baseline.json")
+        let syncController = SyncController(
+            context: container.mainContext, defaults: .standard, goalStore: goalStore, rewards: rewards,
+            engine: engine, radio: radio, notifications: notifications, baselineURL: baselineURL)
+        syncController.start()
+
         notifications.requestAuthorization()
         engine.startTicking()
 
@@ -70,6 +79,7 @@ struct TuneNookApp: App {
         _hotKeys = State(initialValue: hotKeys)
         _updater = State(initialValue: updater)
         _mcpServer = State(initialValue: mcpServer)
+        _syncController = State(initialValue: syncController)
         _engine = State(initialValue: engine)
         _radio = State(initialValue: radio)
         _goalStore = State(initialValue: goalStore)
@@ -84,6 +94,7 @@ struct TuneNookApp: App {
                 .environment(goalStore)
                 .environment(rewards)
                 .environment(updater)
+                .environment(syncController)
                 .modelContainer(container)
         } label: {
             MenuBarLabel(engine: engine, rewards: rewards)
@@ -109,6 +120,7 @@ struct TuneNookApp: App {
                 .environment(hotKeys)
                 .environment(updater)
                 .environment(mcpServer)
+                .environment(syncController)
                 .modelContainer(container)
         }
     }

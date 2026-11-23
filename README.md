@@ -28,6 +28,15 @@
 - **Weekly focus & estimate accuracy** (v0.6): on the Progress page, a bar chart of focus hours for the last 12 weeks (hover a bar for that week) and how your estimates hold up: actual sessions per estimated session, how many tasks finished under, on or over estimate, a breakdown per topic and the biggest misses. Choose the last 30 days, 90 days or all time. Only finished tasks with at least one focus session count.
 - **In-app updates** (v0.7): TuneNook checks GitHub for a new version once a day and installs it in one click. Updates are signed and verified, never interrupt a focus session, and wait until you quit if a timer is running. Check by hand from the popover or Settings → General.
 - **Agents (MCP)** (v0.8): let Claude Code and other MCP clients manage your topics, tasks and settings and read your focus history. Off by default; turn it on in Settings → Agents. It listens on this Mac only and needs a token.
+- **Sync between Macs** (v0.9): keep topics, tasks, sessions and your settings the same on every Mac through a folder in iCloud Drive. Off by default; turn it on in Settings → Sync. No account or server of ours is involved.
+
+## Set up sync
+
+1. On the first Mac, open Settings → Sync, turn on **Sync between Macs** and pick a folder in iCloud Drive, for example a new folder named `TuneNook`.
+2. On the second Mac, turn it on and pick the same folder. If the settings differ, TuneNook asks whose to keep. Topics, tasks and sessions always combine.
+3. In Finder, right-click the folder and choose **Keep Downloaded** (on macOS 14, turn off Optimize Mac Storage) so iCloud doesn't evict the files.
+
+Each Mac writes its own file in the folder, so Macs never overwrite each other. What syncs: topics, tasks, focus sessions, the daily goal and settings for the timer, away rules, music, celebrations and menu bar icon. What doesn't: the running timer, whether the radio is playing, the MCP token and port, the global shortcut, launch at login and update preferences. Don't also sync the same folder with Dropbox or OneDrive. A Mac that hasn't synced for a while shows as inactive; remove it from the tab to delete its file.
 
 ## Connect an agent
 
@@ -54,7 +63,8 @@ TuneNook must be running. The server listens on 127.0.0.1 only, so nothing off t
 | **v0.6** ✅ | Weekly focus chart, estimate accuracy, `.dmg` downloads |
 | **v0.7** ✅ | In-app updates (Sparkle) |
 | **v0.8** ✅ | MCP server for agents |
-| Later | macOS Focus Filters, iCloud sync, MCP client (pull tasks from other tools) |
+| **v0.9** | Sync between Macs via iCloud Drive |
+| Later | macOS Focus Filters, MCP client (pull tasks from other tools) |
 
 ## Development
 

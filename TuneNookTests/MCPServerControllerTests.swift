@@ -13,7 +13,7 @@ struct MCPServerControllerTests {
         container = try ModelContainer(
             for: Topic.self, TodoTask.self, FocusSession.self,
             configurations: .init(isStoredInMemoryOnly: true))
-        defaults = UserDefaults(suiteName: UUID().uuidString)!
+        defaults = TestDefaults.make()
         tools = TuneNookTools(
             context: container.mainContext, defaults: defaults, goalStore: GoalStore(defaults: defaults),
             stations: [], isBusy: { _ in false }, deselect: { _ in })

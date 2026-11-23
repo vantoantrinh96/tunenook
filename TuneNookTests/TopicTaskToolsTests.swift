@@ -31,7 +31,7 @@ struct TopicTaskToolsTests {
     }
 
     static func makeTools(context: ModelContext, box: Box, calendar: Calendar, now: Date) -> TuneNookTools {
-        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        let defaults = TestDefaults.make()
         return TuneNookTools(
             context: context, defaults: defaults, goalStore: GoalStore(defaults: defaults), stations: [],
             isBusy: { box.busy.contains($0.persistentModelID) },
