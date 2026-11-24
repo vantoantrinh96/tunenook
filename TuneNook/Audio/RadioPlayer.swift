@@ -1,3 +1,4 @@
+import AppKit
 import AVFoundation
 import Foundation
 import Observation
@@ -30,6 +31,7 @@ final class RadioPlayer {
     @ObservationIgnored private var statusObservation: NSKeyValueObservation?
     @ObservationIgnored private var itemObservation: NSKeyValueObservation?
     @ObservationIgnored private var fadeTask: Task<Void, Never>?
+    @ObservationIgnored private var wakeObservers: [NSObjectProtocol] = []
 
     private static let selectedKey = "radio.selectedStationID"
 
@@ -38,9 +40,15 @@ final class RadioPlayer {
         let saved = UserDefaults.standard.string(forKey: Self.selectedKey)
         self.selectedStationID = stations.first { $0.id == saved }?.id ?? stations.first?.id ?? ""
         player.automaticallyWaitsToMinimizeStalling = true
-        statusObservation = player.observe(\.timeControlStatus, options: [.new]) { @Sendable [weak self] player, _ in
-            let status = player.timeControlStatus
-            Task { @MainActor in self?.handle(status) }
+        statusObservation = player.observe(\.timeControlStatus, options: [.new]) { @Sendable [weak self] _, _ in
+            Task { @MainActor in self?.syncWithPlayer() }
+        }
+        // The player can stop while the Mac sleeps or the screen is locked; check again on the way back.
+        let center = NSWorkspace.shared.notificationCenter
+        wakeObservers = [NSWorkspace.didWakeNotification, NSWorkspace.screensDidWakeNotification, NSWorkspace.sessionDidBecomeActiveNotification].map {
+            center.addObserver(forName: $0, object: nil, queue: .main) { @Sendable [weak self] _ in
+                Task { @MainActor in self?.syncWithPlayer() }
+            }
         }
     }
 
@@ -120,13 +128,20 @@ final class RadioPlayer {
         }
     }
 
-    private func handle(_ status: AVPlayer.TimeControlStatus) {
+    /// Mirrors the player into `state`. Reads the player's current status rather than the one
+    /// a KVO change carried, so a stale change queued before a stop or play can't undo it.
+    func syncWithPlayer() {
         guard state != .stopped else { return }
         if case .failed = state { return }
-        switch status {
+        if player.currentItem?.status == .failed {
+            state = .failed(player.currentItem?.error?.localizedDescription ?? "Stream unavailable")
+            return
+        }
+        switch player.timeControlStatus {
         case .playing: state = .playing
         case .waitingToPlayAtSpecifiedRate: state = .buffering
-        case .paused: break
+        // Nothing in the app pauses without stopping, so the system did it (sleep, lock, lost stream).
+        case .paused: stop()
         @unknown default: break
         }
     }

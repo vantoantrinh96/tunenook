@@ -7,15 +7,11 @@ struct TopicDraft: Identifiable {
     var topic: Topic?
     var name: String
     var colorHex: String
-    var hasDeadline: Bool
-    var deadline: Date
 
     init(topic: Topic? = nil) {
         self.topic = topic
         self.name = topic?.name ?? ""
         self.colorHex = topic?.colorHex ?? Topic.palette.randomElement() ?? Topic.palette[0]
-        self.hasDeadline = topic?.deadline != nil
-        self.deadline = topic?.deadline ?? Calendar.current.date(byAdding: .day, value: 7, to: .now) ?? .now
     }
 }
 
@@ -49,11 +45,6 @@ struct TopicEditor: View {
                     }
                 }
             }
-
-            Toggle("Deadline", isOn: $draft.hasDeadline)
-            if draft.hasDeadline {
-                DatePicker("Due", selection: $draft.deadline, displayedComponents: .date)
-            }
         }
         .formStyle(.grouped)
         .frame(width: 380)
@@ -76,7 +67,6 @@ struct TopicEditor: View {
         let topic = draft.topic ?? Topic(name: trimmedName)
         topic.name = trimmedName
         topic.colorHex = draft.colorHex
-        topic.deadline = draft.hasDeadline ? draft.deadline : nil
         if draft.topic == nil { context.insert(topic) }
         try? context.save()
         onSave(topic)

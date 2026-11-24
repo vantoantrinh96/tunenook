@@ -57,13 +57,13 @@ struct SnapshotApplierTests {
 
     private func record(_ topic: Topic, name: String? = nil) -> SyncTopic {
         SyncTopic(id: topic.syncID, meta: meta, name: name ?? topic.name, colorHex: topic.colorHex,
-                  createdAt: topic.createdAt.syncMillis, deadline: topic.deadline?.syncMillis, mergedInto: nil)
+                  createdAt: topic.createdAt.syncMillis, mergedInto: nil)
     }
 
     private func record(_ task: TodoTask, topicID: UUID) -> SyncTask {
         SyncTask(id: task.syncID, meta: meta, title: task.title, estimatedSessions: task.estimatedSessions,
                  isDone: task.isDone, createdAt: task.createdAt.syncMillis,
-                 completedAt: task.completedAt?.syncMillis, topicID: topicID)
+                 completedAt: task.completedAt?.syncMillis, deadline: task.deadline?.syncMillis, topicID: topicID)
     }
 
     private func record(_ session: FocusSession, taskID: UUID?) -> SyncSession {
@@ -94,7 +94,7 @@ struct SnapshotApplierTests {
         state.topics = [
             record(a, name: "A renamed"),
             SyncTopic(id: cID, meta: meta, name: "C", colorHex: "#43AA8B", createdAt: t0,
-                      deadline: t0.addingTimeInterval(86_400), mergedInto: nil),
+                      mergedInto: nil),
         ]
 
         try applier.apply(state)
@@ -105,7 +105,6 @@ struct SnapshotApplierTests {
         let c = try #require(topics.first { $0.syncID == cID })
         #expect(c.name == "C")
         #expect(c.colorHex == "#43AA8B")
-        #expect(c.deadline == t0.addingTimeInterval(86_400))
         #expect(!context.hasChanges)
     }
 
@@ -113,9 +112,10 @@ struct SnapshotApplierTests {
         let topicID = UUID(), taskID = UUID(), sessionID = UUID()
         var state = emptyState()
         state.topics = [SyncTopic(id: topicID, meta: meta, name: "T", colorHex: "#fff", createdAt: t0,
-                                  deadline: nil, mergedInto: nil)]
+                                  mergedInto: nil)]
         state.tasks = [SyncTask(id: taskID, meta: meta, title: "Do", estimatedSessions: 3, isDone: true,
-                                createdAt: t0, completedAt: t0.addingTimeInterval(60), topicID: topicID)]
+                                createdAt: t0, completedAt: t0.addingTimeInterval(60),
+                                deadline: t0.addingTimeInterval(86_400), topicID: topicID)]
         state.sessions = [SyncSession(id: sessionID, meta: meta, kind: "shortBreak", startedAt: t0,
                                       endedAt: t0.addingTimeInterval(300), activeSeconds: 290,
                                       completed: true, taskID: taskID)]
@@ -123,6 +123,7 @@ struct SnapshotApplierTests {
         try applier.apply(state)
 
         let task = try #require(try fetchTasks().first)
+        #expect(task.deadline == t0.addingTimeInterval(86_400))
         #expect(task.syncID == taskID)
         #expect(task.topic?.syncID == topicID)
         #expect(task.estimatedSessions == 3 && task.isDone)

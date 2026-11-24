@@ -5,18 +5,16 @@ struct TopicDTO: Encodable {
     let id: String
     let name: String
     let color: String
-    let deadline: Date?
     let openTasks: Int
     let doneTasks: Int
 
-    enum CodingKeys: String, CodingKey { case id, name, color, deadline, openTasks, doneTasks }
+    enum CodingKeys: String, CodingKey { case id, name, color, openTasks, doneTasks }
 
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(id, forKey: .id)
         try c.encode(name, forKey: .name)
         try c.encode(color, forKey: .color)
-        try c.encode(deadline, forKey: .deadline)
         try c.encode(openTasks, forKey: .openTasks)
         try c.encode(doneTasks, forKey: .doneTasks)
     }
@@ -27,28 +25,12 @@ struct TopicList: Encodable { let topics: [TopicDTO] }
 struct CreateTopicArgs: Decodable {
     var name: String?
     var color: String?
-    var deadline: String?
 }
 
 struct UpdateTopicArgs: Decodable {
-    enum DeadlineChange { case keep, clear, set(String) }
-
     var id: String?
     var name: String?
     var color: String?
-    var deadline: DeadlineChange = .keep
-
-    enum CodingKeys: String, CodingKey { case id, name, color, deadline }
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = try c.decodeIfPresent(String.self, forKey: .id)
-        name = try c.decodeIfPresent(String.self, forKey: .name)
-        color = try c.decodeIfPresent(String.self, forKey: .color)
-        if c.contains(.deadline) {
-            deadline = try c.decodeNil(forKey: .deadline) ? .clear : .set(c.decode(String.self, forKey: .deadline))
-        }
-    }
 }
 
 struct IDArgs: Decodable { var id: String? }
@@ -56,7 +38,7 @@ struct IDArgs: Decodable { var id: String? }
 extension TuneNookTools {
     func topicDTO(_ topic: Topic) -> TopicDTO {
         TopicDTO(id: EntityID.encode(topic.persistentModelID), name: topic.name, color: topic.colorHex,
-                 deadline: topic.deadline, openTasks: topic.openTasks.count, doneTasks: topic.doneTasks.count)
+                 openTasks: topic.openTasks.count, doneTasks: topic.doneTasks.count)
     }
 
     func requireID(_ id: String?) throws -> String {
@@ -80,8 +62,7 @@ extension TuneNookTools {
         guard let name = args.name else { throw ToolError("name is required.") }
         let clean = try cleanName(name, field: "name")
         let color = try args.color.map(validColor) ?? Topic.palette[0]
-        let deadline = try args.deadline.map { try parseDate($0, field: "deadline") }
-        let topic = Topic(name: clean, colorHex: color, deadline: deadline, createdAt: now())
+        let topic = Topic(name: clean, colorHex: color, createdAt: now())
         context.insert(topic)
         try save()
         return topicDTO(topic)
@@ -91,15 +72,8 @@ extension TuneNookTools {
         let topic = try topic(id: requireID(args.id))
         let name = try args.name.map { try cleanName($0, field: "name") }
         let color = try args.color.map(validColor)
-        var deadline: Date??
-        switch args.deadline {
-        case .keep: deadline = nil
-        case .clear: deadline = .some(nil)
-        case .set(let string): deadline = .some(try parseDate(string, field: "deadline"))
-        }
         if let name { topic.name = name }
         if let color { topic.colorHex = color }
-        if let deadline { topic.deadline = deadline }
         try save()
         return topicDTO(topic)
     }

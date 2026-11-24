@@ -69,23 +69,19 @@ struct TopicTaskToolsTests {
     }
 
     @Test func createThenListTopic() throws {
-        let created = try call("create_topic", ##"{"name":"  Thesis ","color":"#43AA8B","deadline":"2026-12-01"}"##)
+        let created = try call("create_topic", ##"{"name":"  Thesis ","color":"#43AA8B"}"##)
         #expect(created["name"] as? String == "Thesis")
         #expect(created["color"] as? String == "#43AA8B")
-        let expected = calendar.date(from: DateComponents(year: 2026, month: 12, day: 1))!
-        let topic = try #require(try context.fetch(FetchDescriptor<Topic>()).first)
-        #expect(topic.deadline == expected)
+        #expect(created["deadline"] == nil)
         let listed = try #require(try call("list_topics")["topics"] as? [[String: Any]])
         #expect(listed.count == 1)
         #expect(listed[0]["open_tasks"] as? Int == 0)
         #expect(listed[0]["id"] as? String == created["id"] as? String)
-        #expect(listed[0]["deadline"] is String)
     }
 
     @Test func topicValidation() throws {
         expectToolError { try call("create_topic", #"{"name":"   "}"#) }
         expectToolError { try call("create_topic", ##"{"name":"x","color":"#000000"}"##) }
-        expectToolError { try call("create_topic", #"{"name":"x","deadline":"soon"}"#) }
         expectToolError { try call("create_topic", #"{"name":5}"#) }
         expectToolError { try call("create_task", #"{"title":"x","topic_id":"y","estimated_sessions":"3"}"#) }
         do {
@@ -103,15 +99,36 @@ struct TopicTaskToolsTests {
         #expect(try context.fetch(FetchDescriptor<Topic>()).isEmpty)
     }
 
-    @Test func updateTopicDeadlineNullClearsAbsentKeeps() throws {
-        let id = try #require(try call("create_topic", #"{"name":"A","deadline":"2026-12-01"}"#)["id"] as? String)
-        let renamed = try call("update_topic", #"{"id":"\#(id)","name":"B"}"#)
-        #expect(renamed["name"] as? String == "B")
+    @Test func createTaskWithDeadline() throws {
+        let topic = try createTopic()
+        let id = try createTask(topic, #"{"title":"Draft","deadline":"2026-12-01"}"#)
+        let expected = calendar.date(from: DateComponents(year: 2026, month: 12, day: 1))!
+        let task = try #require(try context.fetch(FetchDescriptor<TodoTask>()).first)
+        #expect(task.deadline == expected)
+        let listed = try #require(try call("list_tasks")["tasks"] as? [[String: Any]])
+        #expect(listed.first?["id"] as? String == id)
+        #expect(listed.first?["deadline"] is String)
+        expectToolError { try call("create_task", #"{"title":"x","topic_id":"\#(topic)","deadline":"soon"}"#) }
+    }
+
+    @Test func updateTaskDeadlineNullClearsAbsentKeeps() throws {
+        let id = try createTask(try createTopic(), #"{"title":"A","deadline":"2026-12-01"}"#)
+        let renamed = try call("update_task", #"{"id":"\#(id)","title":"B"}"#)
+        #expect(renamed["title"] as? String == "B")
         #expect(renamed["deadline"] is String)
-        let cleared = try call("update_topic", #"{"id":"\#(id)","deadline":null}"#)
+        let moved = try call("update_task", #"{"id":"\#(id)","deadline":"2026-12-05"}"#)
+        #expect((moved["deadline"] as? String)?.hasPrefix("2026-12-05") == true)
+        let cleared = try call("update_task", #"{"id":"\#(id)","deadline":null}"#)
         #expect(cleared["deadline"] is NSNull)
-        let topic = try #require(try context.fetch(FetchDescriptor<Topic>()).first)
-        #expect(topic.deadline == nil)
+        let task = try #require(try context.fetch(FetchDescriptor<TodoTask>()).first)
+        #expect(task.deadline == nil)
+        expectToolError { try call("update_task", #"{"id":"\#(id)","deadline":"soon"}"#) }
+    }
+
+    @Test func topicsNoLongerTakeADeadline() throws {
+        let id = try #require(try call("create_topic", #"{"name":"A","deadline":"2026-12-01"}"#)["id"] as? String)
+        let updated = try call("update_topic", #"{"id":"\#(id)","deadline":"2026-12-01"}"#)
+        #expect(updated["deadline"] == nil)
     }
 
     @Test func createTaskNeedsTopic() throws {
@@ -210,11 +227,11 @@ struct TopicTaskToolsTests {
     }
 
     @Test func outputDatesCarryTimeZone() throws {
-        let created = try call("create_topic", ##"{"name":"X","deadline":"2026-12-01"}"##)
+        let topic = try createTopic()
+        let created = try call("create_task", #"{"title":"A","topic_id":"\#(topic)","deadline":"2026-12-01"}"#)
         let deadline = try #require(created["deadline"] as? String)
         #expect(deadline == "2026-12-01T00:00:00+07:00")
-        let topic = try #require(created["id"] as? String)
-        let task = try createTask(topic)
+        let task = try #require(created["id"] as? String)
         let done = try call("update_task", #"{"id":"\#(task)","done":true}"#)
         let completed = try #require(done["completed_at"] as? String)
         #expect(completed.hasSuffix("+07:00") || completed.hasSuffix("Z"))

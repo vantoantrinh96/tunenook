@@ -5,7 +5,10 @@ import UserNotifications
 @MainActor
 final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
     private let center = UNUserNotificationCenter.current()
-    private let requestID = "tunenook.phase-end"
+    /// The phase-end alert waiting to fire. Each phase gets its own id: reusing one would make
+    /// scheduling the break's alert replace the focus alert just delivered, pulling it from
+    /// the screen and Notification Center.
+    private var pendingPhaseEndID: String?
     private nonisolated static let awayCategory = "tunenook.away"
     private nonisolated static let resumeAction = "resume"
     private nonisolated static let updateID = "tunenook.update"
@@ -68,7 +71,9 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
         content.sound = .default
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
-        center.add(UNNotificationRequest(identifier: requestID, content: content, trigger: trigger))
+        let id = "tunenook.phase-end.\(UUID().uuidString)"
+        pendingPhaseEndID = id
+        center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
     }
 
     func notifyGoalReached(streak: Int) {
@@ -117,7 +122,10 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
         center.removePendingNotificationRequests(withIdentifiers: [Self.updateID])
     }
 
+    /// Drops the alert still waiting to fire; ones already delivered stay in Notification Center.
     func cancel() {
-        center.removePendingNotificationRequests(withIdentifiers: [requestID])
+        guard let id = pendingPhaseEndID else { return }
+        center.removePendingNotificationRequests(withIdentifiers: [id])
+        pendingPhaseEndID = nil
     }
 }

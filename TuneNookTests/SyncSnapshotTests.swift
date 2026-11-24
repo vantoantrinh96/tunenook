@@ -12,9 +12,10 @@ import Testing
         s.exportedAt = Date(timeIntervalSince1970: 1_700_000_000.123)
         let topicID = UUID(), taskID = UUID()
         s.topics = [SyncTopic(id: topicID, meta: meta(100.5), name: "Swift", colorHex: "#FF0000",
-                              createdAt: Date(timeIntervalSince1970: 50.25), deadline: Date(timeIntervalSince1970: 900), mergedInto: nil)]
+                              createdAt: Date(timeIntervalSince1970: 50.25), mergedInto: nil)]
         s.tasks = [SyncTask(id: taskID, meta: meta(101), title: "Read", estimatedSessions: 3, isDone: false,
-                            createdAt: Date(timeIntervalSince1970: 60), completedAt: nil, topicID: topicID)]
+                            createdAt: Date(timeIntervalSince1970: 60), completedAt: nil,
+                            deadline: Date(timeIntervalSince1970: 900), topicID: topicID)]
         s.sessions = [SyncSession(id: UUID(), meta: meta(102), kind: "focus", startedAt: Date(timeIntervalSince1970: 70),
                                   endedAt: Date(timeIntervalSince1970: 1570), activeSeconds: 1500, completed: true, taskID: taskID)]
         s.settings = ["timer.focusMinutes": SyncSetting(value: .int(30), meta: meta(103)),
@@ -31,7 +32,7 @@ import Testing
 
     @Test func encodingIsDeterministic() throws {
         var a = sample()
-        let extra = SyncTopic(id: UUID(), meta: meta(1), name: "B", colorHex: "#00FF00", createdAt: Date(timeIntervalSince1970: 1), deadline: nil, mergedInto: nil)
+        let extra = SyncTopic(id: UUID(), meta: meta(1), name: "B", colorHex: "#00FF00", createdAt: Date(timeIntervalSince1970: 1), mergedInto: nil)
         a.topics.append(extra)
         a.goals.append(SyncGoal(day: Date(timeIntervalSince1970: 172800), meta: meta(2), kind: "sessions", target: 2))
         var b = a

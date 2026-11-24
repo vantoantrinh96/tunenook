@@ -16,7 +16,9 @@ struct TimerEngineTests {
     func makeEngine() -> (TimerEngine, Recorder) {
         let clock = self.clock
         let settings = self.settings
-        let engine = TimerEngine(clock: { clock.now }, settings: { settings })
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        let engine = TimerEngine(clock: { clock.now }, settings: { settings }, calendar: utc)
         let recorder = Recorder()
         engine.onSessionEnded = { recorder.records.append($0) }
         return (engine, recorder)
@@ -89,6 +91,46 @@ struct TimerEngineTests {
         #expect(engine.phase == .longBreak)
         #expect(engine.completedFocusCount == 4)
         #expect(engine.isRunning)
+    }
+
+    @Test func longBreakCycleStartsOverOnANewDay() {
+        let (engine, _) = makeEngine()
+        // Three focus sessions today: the next one would earn a long break.
+        for _ in 0..<3 {
+            engine.start()
+            clock.advance(minutes: 25)
+            engine.tick()
+            engine.skipBreak()
+        }
+        #expect(engine.cyclePosition == 3)
+
+        clock.advance(minutes: 24 * 60)
+        engine.tick()
+        #expect(engine.cyclePosition == 0)
+
+        engine.start()
+        clock.advance(minutes: 25)
+        engine.tick()
+        #expect(engine.phase == .shortBreak)
+        #expect(engine.completedFocusCount == 1)
+    }
+
+    @Test func focusFinishingAfterMidnightCountsForTheNewDay() {
+        let (engine, _) = makeEngine()
+        for _ in 0..<3 {
+            engine.start()
+            clock.advance(minutes: 25)
+            engine.tick()
+            engine.skipBreak()
+        }
+        // Fixed clock starts at 08:00 UTC; it is now 09:15. Start a focus at 23:50.
+        clock.advance(minutes: 14 * 60 + 35)
+        engine.start()
+        clock.advance(minutes: 25)
+        engine.tick()
+
+        #expect(engine.phase == .shortBreak)
+        #expect(engine.completedFocusCount == 1)
     }
 
     @Test func sleepingThroughPhasesCatchesUp() {

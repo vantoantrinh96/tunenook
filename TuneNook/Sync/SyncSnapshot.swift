@@ -44,12 +44,11 @@ struct SyncTopic: Codable, Equatable, Sendable {
     var name: String
     var colorHex: String
     var createdAt: Date
-    var deadline: Date?
     var mergedInto: UUID?
 
     func sameContent(as other: SyncTopic) -> Bool {
         id == other.id && name == other.name && colorHex == other.colorHex
-            && createdAt == other.createdAt && deadline == other.deadline
+            && createdAt == other.createdAt
     }
 }
 
@@ -61,12 +60,13 @@ struct SyncTask: Codable, Equatable, Sendable {
     var isDone: Bool
     var createdAt: Date
     var completedAt: Date?
+    var deadline: Date?
     var topicID: UUID?
 
     func sameContent(as other: SyncTask) -> Bool {
         id == other.id && title == other.title && estimatedSessions == other.estimatedSessions
             && isDone == other.isDone && createdAt == other.createdAt
-            && completedAt == other.completedAt && topicID == other.topicID
+            && completedAt == other.completedAt && deadline == other.deadline && topicID == other.topicID
     }
 }
 

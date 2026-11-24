@@ -9,7 +9,7 @@ import Foundation
         SyncMeta(modifiedAt: at(offset), modifiedBy: by, deleted: deleted)
     }
     func topic(_ id: UUID, _ name: String, _ m: SyncMeta) -> SyncTopic {
-        SyncTopic(id: id, meta: m, name: name, colorHex: "#fff", createdAt: at(-1000), deadline: nil, mergedInto: nil)
+        SyncTopic(id: id, meta: m, name: name, colorHex: "#fff", createdAt: at(-1000), mergedInto: nil)
     }
     func task(_ id: UUID, _ m: SyncMeta) -> SyncTask {
         SyncTask(id: id, meta: m, title: "t", estimatedSessions: 1, isDone: false, createdAt: at(-1000), completedAt: nil, topicID: nil)
