@@ -1,3 +1,4 @@
+import Combine
 import SwiftData
 import SwiftUI
 
@@ -72,6 +73,9 @@ private struct NewTaskBar: View {
     @Environment(\.modelContext) private var context
     @State private var title = ""
     @State private var estimate = 1
+    @State private var deadline: Date?
+    @State private var pickingDeadline = false
+    @State private var today = Calendar.current.startOfDay(for: .now)
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -80,6 +84,7 @@ private struct NewTaskBar: View {
                 .textFieldStyle(.roundedBorder)
                 .focused($focused)
                 .onSubmit(add)
+            DeadlineButton(deadline: $deadline, isPresented: $pickingDeadline, today: today)
             Stepper(value: $estimate, in: 1...12) {
                 Text("♪ \(estimate)")
                     .monospacedDigit()
@@ -90,6 +95,11 @@ private struct NewTaskBar: View {
                 .disabled(trimmed.isEmpty)
         }
         .padding(12)
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: RunLoop.main)) { _ in
+            // Left open overnight: relabel the chip, and drop a pick whose day has passed.
+            today = Calendar.current.startOfDay(for: .now)
+            deadline = DeadlinePreset.unexpired(deadline)
+        }
     }
 
     private var trimmed: String {
@@ -98,12 +108,80 @@ private struct NewTaskBar: View {
 
     private func add() {
         guard !trimmed.isEmpty else { return }
-        let task = TodoTask(title: trimmed, estimatedSessions: estimate, topic: topic)
+        let task = TodoTask(title: trimmed, estimatedSessions: estimate, topic: topic, deadline: DeadlinePreset.unexpired(deadline))
         context.insert(task)
         try? context.save()
         title = ""
         estimate = 1
+        deadline = nil
         focused = true
+    }
+}
+
+/// Calendar button on the new-task bar: an icon when empty, a "📅 Tomorrow ✕" chip once set.
+private struct DeadlineButton: View {
+    @Binding var deadline: Date?
+    @Binding var isPresented: Bool
+    /// Start of the current day; changes at midnight so the chip label stays right.
+    let today: Date
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Button {
+                isPresented = true
+            } label: {
+                if let deadline {
+                    Label(DeadlinePreset.shortLabel(for: deadline, now: today), systemImage: "calendar")
+                } else {
+                    Image(systemName: "calendar")
+                }
+            }
+            .help("Deadline")
+            .popover(isPresented: $isPresented, arrowEdge: .bottom) { picker }
+
+            if deadline != nil {
+                Button {
+                    deadline = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.borderless)
+                .help("Remove deadline")
+            }
+        }
+        .fixedSize()
+    }
+
+    private var picker: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                ForEach(DeadlinePreset.allCases, id: \.self) { preset in
+                    Button(preset.title) {
+                        deadline = preset.date(from: .now)
+                        isPresented = false
+                    }
+                }
+            }
+            DatePicker(
+                "Due",
+                selection: Binding(
+                    get: { deadline ?? today },
+                    set: { deadline = Calendar.current.startOfDay(for: $0) }
+                ),
+                in: today...,
+                displayedComponents: .date
+            )
+            .datePickerStyle(.graphical)
+            .labelsHidden()
+            if deadline != nil {
+                Button("No deadline") {
+                    deadline = nil
+                    isPresented = false
+                }
+            }
+        }
+        .padding(12)
     }
 }
 
