@@ -42,6 +42,14 @@ import Testing
         #expect(DeadlinePreset.shortLabel(for: date(2026, 11, 24), now: now, calendar: calendar) == "Nov 24")
     }
 
+    @Test func pickedDayThatHasPassedIsDropped() {
+        let now = date(2026, 11, 26, 8)
+        #expect(DeadlinePreset.unexpired(date(2026, 11, 25), now: now, calendar: calendar) == nil)
+        #expect(DeadlinePreset.unexpired(date(2026, 11, 26), now: now, calendar: calendar) == date(2026, 11, 26))
+        #expect(DeadlinePreset.unexpired(date(2026, 11, 27), now: now, calendar: calendar) == date(2026, 11, 27))
+        #expect(DeadlinePreset.unexpired(nil, now: now, calendar: calendar) == nil)
+    }
+
     @Test func titles() {
         #expect(DeadlinePreset.allCases.map(\.title) == ["Today", "Tomorrow", "Next week"])
     }

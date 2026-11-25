@@ -1,3 +1,4 @@
+import Combine
 import SwiftData
 import SwiftUI
 
@@ -74,6 +75,7 @@ private struct NewTaskBar: View {
     @State private var estimate = 1
     @State private var deadline: Date?
     @State private var pickingDeadline = false
+    @State private var today = Calendar.current.startOfDay(for: .now)
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -82,7 +84,7 @@ private struct NewTaskBar: View {
                 .textFieldStyle(.roundedBorder)
                 .focused($focused)
                 .onSubmit(add)
-            DeadlineButton(deadline: $deadline, isPresented: $pickingDeadline)
+            DeadlineButton(deadline: $deadline, isPresented: $pickingDeadline, today: today)
             Stepper(value: $estimate, in: 1...12) {
                 Text("♪ \(estimate)")
                     .monospacedDigit()
@@ -93,6 +95,11 @@ private struct NewTaskBar: View {
                 .disabled(trimmed.isEmpty)
         }
         .padding(12)
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: RunLoop.main)) { _ in
+            // Left open overnight: relabel the chip, and drop a pick whose day has passed.
+            today = Calendar.current.startOfDay(for: .now)
+            deadline = DeadlinePreset.unexpired(deadline)
+        }
     }
 
     private var trimmed: String {
@@ -101,7 +108,7 @@ private struct NewTaskBar: View {
 
     private func add() {
         guard !trimmed.isEmpty else { return }
-        let task = TodoTask(title: trimmed, estimatedSessions: estimate, topic: topic, deadline: deadline)
+        let task = TodoTask(title: trimmed, estimatedSessions: estimate, topic: topic, deadline: DeadlinePreset.unexpired(deadline))
         context.insert(task)
         try? context.save()
         title = ""
@@ -115,6 +122,8 @@ private struct NewTaskBar: View {
 private struct DeadlineButton: View {
     @Binding var deadline: Date?
     @Binding var isPresented: Bool
+    /// Start of the current day; changes at midnight so the chip label stays right.
+    let today: Date
 
     var body: some View {
         HStack(spacing: 2) {
@@ -122,7 +131,7 @@ private struct DeadlineButton: View {
                 isPresented = true
             } label: {
                 if let deadline {
-                    Label(DeadlinePreset.shortLabel(for: deadline), systemImage: "calendar")
+                    Label(DeadlinePreset.shortLabel(for: deadline, now: today), systemImage: "calendar")
                 } else {
                     Image(systemName: "calendar")
                 }
@@ -145,8 +154,7 @@ private struct DeadlineButton: View {
     }
 
     private var picker: some View {
-        let today = Calendar.current.startOfDay(for: .now)
-        return VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 ForEach(DeadlinePreset.allCases, id: \.self) { preset in
                     Button(preset.title) {

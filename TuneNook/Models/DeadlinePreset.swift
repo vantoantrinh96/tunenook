@@ -25,6 +25,12 @@ enum DeadlinePreset: CaseIterable {
         }
     }
 
+    /// The picked day, or nil once that day has passed (a pick left open overnight).
+    static func unexpired(_ day: Date?, now: Date = .now, calendar: Calendar = .current) -> Date? {
+        guard let day, day >= calendar.startOfDay(for: now) else { return nil }
+        return day
+    }
+
     /// "Today", "Tomorrow", otherwise "Nov 28".
     static func shortLabel(for day: Date, now: Date = .now, calendar: Calendar = .current) -> String {
         if calendar.isDate(day, inSameDayAs: now) { return "Today" }
