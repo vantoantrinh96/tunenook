@@ -2,11 +2,18 @@ name: Release
 
 # After CI passes on main, bump the version from the merged PR's title and tag it.
 # Only a bump builds the app: the Release build is packed as a .dmg and a .zip and published as a GitHub Release.
+# Run it by hand with a version to build and publish an existing tag again, e.g. after its build was cancelled.
 on:
   workflow_run:
     workflows: [CI]
     types: [completed]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing release tag to build and publish, without the v (e.g. 0.11.0)
+        required: true
+        type: string
 
 concurrency:
   group: release
@@ -19,11 +26,13 @@ permissions:
 jobs:
   version:
     name: Bump version
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
-      version: ${{ steps.bump.outputs.version }}
+      version: ${{ steps.bump.outputs.version || steps.existing.outputs.version }}
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
@@ -37,8 +46,26 @@ jobs:
           # bump commit and tag below can be pushed. GITHUB_TOKEN can't bypass on a personal repo.
           ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
+      - name: Use the existing tag
+        id: existing
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::version must look like 0.11.0 (no v)."
+            exit 1
+          fi
+          if ! git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "::error::Tag v$VERSION does not exist; a manual run only rebuilds an existing tag."
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Rebuilding existing tag **v$VERSION** (manual run)." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Find PRs merged since the last release
         id: pr
+        if: github.event_name == 'workflow_run'
         # A stack merges several PRs at once (upper PRs into the branch below them), and a failed
         # release leaves PRs for the next one. So take every PR merged since the last tag whose
         # commits are now on main, and use the biggest bump among them.
